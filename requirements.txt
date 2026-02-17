@@ -1,0 +1,26 @@
+# Application Web
+streamlit
+streamlit_folium
+folium
+
+# Data Science & Analysis
+pandas
+numpy
+scipy
+
+# Machine Learning
+scikit-learn
+xgboost
+joblib
+
+# Visualisations
+plotly
+matplotlib
+seaborn
+
+# Time Series
+statsmodels
+
+# Utilities
+openpyxl
+python-docx
