@@ -41,7 +41,8 @@ from financial_analysis import (
 )
 from ml_models import ONPPricePredictor
 from onp_assets import ONP_EDITO, get_image_path, ONP_WEBSITE_URL
-from onp_3d_logo import static_onp_logo, create_onp_premium_3d_logo  # Import the ONP logo components
+from logistics_optimizer import suggest_optimal_ports, get_market_saturation_alerts
+from dynamic_logo import display_premium_onp_logo, create_animated_kpi_header  # Import the ONP logo components
 
 # ==================== CONFIGURATION ====================
 st.set_page_config(
@@ -258,20 +259,29 @@ def apply_premium_chart_style(fig):
 
 # ==================== CHARGEMENT DES DONNÉES ====================
 @st.cache_data
-def load_data():
-    """Charge et prépare les données."""
+def load_data(file_hash):
+    """Charge et prépare les données avec invalidation de cache par hash/mtime."""
     try:
-        df = pd.read_csv("donnees_simulation_onp.csv")
-        df['date_vente'] = pd.to_datetime(df['date_vente'])
+        file_path = "donnees_simulation_onp.csv"
+        if not os.path.exists(file_path):
+            return None
+            
+        if os.path.getsize(file_path) == 0:
+            return None
+            
+        # Lecture avec détection automatique d'encodage simple
+        df = pd.read_csv(file_path, encoding='utf-8-sig')
+        if 'date_vente' in df.columns:
+            df['date_vente'] = pd.to_datetime(df['date_vente'])
         return df
     except Exception as e:
-        st.error(f"Erreur de chargement: {e}")
+        st.sidebar.error(f"Détail erreur: {e}")
         return None
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
     # Display premium ONP logo in sidebar
-    create_onp_premium_3d_logo(size=180, speed=15)
+    st.markdown(display_premium_onp_logo(size=180), unsafe_allow_html=True)
     
     st.markdown("---")
     st.markdown("### 🌊 OceanSense AI")
@@ -280,8 +290,12 @@ with st.sidebar:
     
     st.markdown("#### 🔍 Filtres de Données")
     
-    # Charger les données
-    df_raw = load_data()
+    # Calculer un hash ou mtime pour forcer le rechargement si le fichier change
+    file_path = "donnees_simulation_onp.csv"
+    data_hash = os.path.getmtime(file_path) if os.path.exists(file_path) else 0
+    
+    # Charger les données avec le hash
+    df_raw = load_data(data_hash)
     
     if df_raw is not None:
         # Filtres de date
@@ -303,6 +317,17 @@ with st.sidebar:
         all_species = ['Toutes'] + sorted(df_raw['espece'].unique().tolist())
         selected_species = st.selectbox("Espèce", all_species)
         
+        # Alertes Sensationnelles (UX)
+        st.markdown("---")
+        st.markdown("#### 🔔 Alertes de Marché")
+        recent_data = df_raw.tail(100)
+        alerts = get_market_saturation_alerts(recent_data)
+        if alerts:
+            for alert in alerts:
+                st.warning(alert['message'])
+        else:
+            st.success("Marché stable : aucune saturation détectée.")
+
         st.markdown("---")
         st.markdown("#### À propos")
         st.markdown("""
@@ -349,7 +374,7 @@ with col_logo:
     # but keeping current call as it's the intended premium feature.
     # We provide a fallback if it fails.
     try:
-        create_onp_premium_3d_logo(size=120, speed=10)
+        st.markdown(display_premium_onp_logo(size=120), unsafe_allow_html=True)
     except Exception as e:
         st.write("🏛️ ONP")
 
@@ -363,9 +388,10 @@ with col_title:
 st.markdown("---")
 
 # Tabs de navigation (Product-focused)
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab_home, tab_bi, tab_finance, tab_ml, tab_roi, tab_sim, tab_support = st.tabs([
     "🏠 Portail OceanSense",
     "📊 Business Intelligence",
+    "📈 Analyse Financière",
     "🤖 Moteur Prédictif",
     "💎 Valeur & ROI",
     "🚀 Simulation Stratégique",
@@ -373,7 +399,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 ])
 
 # ==================== TAB 1: PORTAIL OCEANSENSE ====================
-with tab1:
+with tab_home:
     # High-End SaaS Hero Section
     hero_img_path = get_image_path('hero')
     st.markdown(f"""
@@ -401,8 +427,8 @@ with tab1:
         "></div>
         <div style="position: relative; z-index: 2;">
             <div style="display: flex; gap: 12px; margin-bottom: 24px;">
-                <div style="background: rgba(14, 165, 233, 0.2); border: 1px solid rgba(14, 165, 233, 0.3); padding: 8px 16px; border-radius: 100px; font-weight: 700; color: #0ea5e9; font-size: 14px; text-transform: uppercase;">🚀 Innovation Halieutique</div>
-                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 8px 16px; border-radius: 100px; font-weight: 600; color: #ffffff; font-size: 14px;">🔒 Secteur Souverain</div>
+                <div style="background: rgba(14, 165, 233, 0.2); border: 1px solid rgba(14, 165, 233, 0.3); padding: 8px 16px; border-radius: 100px; font-weight: 700; color: #0ea5e9; font-size: 14px; text-transform: uppercase;">Innovation Halieutique</div>
+                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 8px 16px; border-radius: 100px; font-weight: 600; color: #ffffff; font-size: 14px;">Secteur Souverain</div>
             </div>
             <h1 style="color: white !important; font-size: 3.5rem !important; margin-bottom: 20px; line-height: 1.1;">L'Intelligence Artificielle pour <span style="color: #0ea5e9;">l'Économie Bleue</span></h1>
             <p style="color: rgba(255,255,255,0.7) !important; font-size: 1.1rem !important; max-width: 800px; margin-bottom: 40px;">{ONP_EDITO}</p>
@@ -456,8 +482,8 @@ with tab1:
     """, unsafe_allow_html=True)
 
 # ==================== TAB 4: VALEUR BUSINESS & ROI ====================
-with tab4:
-    st.header("💎 Analyse de la Valeur & ROI")
+with tab_roi:
+    st.header("Analyse de la Valeur & ROI")
     
     col_r1, col_r2 = st.columns(2)
     with col_r1:
@@ -477,17 +503,17 @@ with tab4:
 
     with col_r2:
         st.subheader("Indicateurs de Performance")
-        st.info("📈 Efficacité de Prédiction: 94.2% de précision sur les 30 derniers jours.")
-        st.warning("⚠️ Alerte Volatilité: 3 espèces (Sardine, Calamar, Espadon) présentent une forte opportunité d'arbitrage.")
+        st.info("Efficacité de Prédiction: 94.2% de précision sur les 30 derniers jours.")
+        st.warning("Alerte Volatilité: 3 espèces (Sardine, Calamar, Espadon) présentent une forte opportunité d'arbitrage.")
         
     st.markdown("---")
     st.subheader("Générateur de Rapport Stratégique")
-    if st.button("📄 Générer le Rapport de Décision (PDF)", type="primary"):
-        st.success("✅ Rapport généré avec succès ! (Simulation de téléchargement)")
+    if st.button("Générer le Rapport de Décision (PDF)", type="primary"):
+        st.success("Rapport généré avec succès ! (Simulation de téléchargement)")
         st.download_button("Télécharger maintenant", "Données du rapport...", file_name="Rapport_OceanSense_Strategie.txt")
 
 # ==================== TAB 6: SUPPORT & GUIDE ====================
-with tab6:
+with tab_support:
     st.header("📚 Centre de Support & Documentation")
     
     with st.expander("📖 Guide d'Utilisation Rapide"):
@@ -510,7 +536,7 @@ with tab6:
     st.markdown("Email: sales@oceansense.ai | Support: support@onp.ma")
 
 # ==================== TAB 2: ANALYSE DES PRIX ====================
-with tab2:
+with tab_bi:
     st.header("Analyse Exploratoire des Prix")
     
     # Distribution des prix
@@ -555,7 +581,7 @@ with tab2:
     st.dataframe(stats_df, width='stretch')
 
 # ==================== TAB 3: ANALYSE FINANCIÈRE ====================
-with tab3:
+with tab_finance:
     st.header("Analyse Financière")
     
     # Tableau récapitulatif
@@ -595,14 +621,64 @@ with tab3:
     st.plotly_chart(apply_premium_chart_style(fig_evolution), use_container_width=True)
 
 # ==================== TAB 4: MODÈLE ML ====================
-with tab4:
-    st.header("Modèles de Machine Learning")
+with tab_ml:
+    st.header("🤖 Moteur Prédictif & Optimisation")
     
+    # --- SECTION OPTIMISATION LOGISTIQUE (PROMOTED) ---
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #0f172a, #1e293b); padding: 30px; border-radius: 20px; border: 1px solid #0ea5e9; margin-bottom: 30px;">
+        <h3 style="color: #0ea5e9 !important; margin-top: 0;">🚛 Optimisation Logistique Multi-Port</h3>
+        <p style="color: rgba(255,255,255,0.8);">L'IA compare en temps réel les prix prédits sur l'ensemble du réseau ONP pour vous suggérer le meilleur point de débarquement.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_l1, col_l2 = st.columns(2)
+    with col_l1:
+        log_species = st.selectbox("Espèce à débarquer", df['espece'].unique(), key='log_sp_new')
+        log_volume = st.number_input("Volume à débarquer (kg)", min_value=100, value=1000, step=100)
+    
+    with col_l2:
+        log_current_port = st.selectbox("Port de départ actuel (optionnel)", ['Aucun'] + sorted(df['port'].unique().tolist()), key='log_port_new')
+        current_port_val = None if log_current_port == 'Aucun' else log_current_port
+
+    if st.button("🔍 Calculer le Meilleur Port", type="primary", key='btn_log_new'):
+        try:
+            predictor = ONPPricePredictor()
+            if predictor.load_model():
+                recommendations = suggest_optimal_ports(predictor, df_raw, log_species, log_volume, current_port_val)
+                
+                # Visualisation Premium
+                st.subheader("🏆 Analyse de Rentabilité par Port")
+                
+                # Bar Chart
+                fig_log = px.bar(
+                    recommendations, 
+                    x='port', 
+                    y='recette_estimee',
+                    text='prix_predit',
+                    labels={'recette_estimee': 'Recette (DH)', 'port': 'Port', 'prix_predit': 'Prix (DH/kg)'},
+                    color='recette_estimee',
+                    color_continuous_scale='Blues'
+                )
+                fig_log.update_traces(texttemplate='%{text:.2f} DH', textposition='outside')
+                st.plotly_chart(apply_premium_chart_style(fig_log), use_container_width=True)
+                
+                # Tableau stylé
+                st.markdown("#### Détails des Recommandations")
+                st.dataframe(recommendations.style.highlight_max(axis=0, subset=['recette_estimee'], color='#dcfce7'), width='stretch')
+                
+                best_port = recommendations.iloc[0]['port']
+                st.success(f"💡 **Recommandation Stratégique** : Débarquer à **{best_port}** pour maximiser vos revenus.")
+            else:
+                st.error("Le modèle ML doit être entraîné d'abord.")
+        except Exception as e:
+            st.error(f"Erreur : {e}")
+
+    st.markdown("---")
     st.markdown("""
     <div class="info-box">
-        <h4>Objectif de la Modélisation</h4>
-        <p>Prédire le <strong>prix de vente optimal</strong> en fonction de multiples facteurs:
-        espèce, port, volume, saison, etc.</p>
+        <h4>⚙️ Configuration & Entraînement du Modèle</h4>
+        <p>Gérez ici l'apprentissage de l'IA et visualisez les performances prédictives globales.</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -725,8 +801,9 @@ with tab4:
         except Exception as e:
             st.warning(f"⚠️ Erreur de chargement du modèle: {e}")
 
+
 # ==================== TAB 5: SIMULATION ====================
-with tab5:
+with tab_sim:
     st.header("Simulation & Recommandation")
     
     st.markdown("""

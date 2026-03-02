@@ -35,17 +35,37 @@ venv.bak/
 .streamlit/
 ! .streamlit/config.toml
 
-# Data & CSVs (keep simulation data but ignore uploads)
+# Data & CSVs (keep simulation data but ignore uploads/large reports)
 donnees_simulation_onp.csv
 ! donnees_simulation_onp.csv
 *.csv
 *.xlsx
 *.xls
 *.docx
+*.jpeg
+*.png
+! logo onp.png
 outputs/
 reports/
 models/
 *.pkl
+
+# Logs & Temp
+*.txt
+*.log
+debug_*.py
+test_*.py
+tmp_*.py
+verify_*.py
+scan_*.py
+audit_*.py
+clean_*.py
+fetch_*.py
+get_*.py
+robust_download.py
+standardize_*.py
+diag.py
+__pycache__/
 
 # IDEs
 .vscode/

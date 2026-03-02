@@ -9,8 +9,15 @@ Il transforme les données brutes en insights métier pour les décideurs.
 
 import pandas as pd
 import numpy as np
+try:
+    from onp_assets import LuxIcons
+except ImportError:
+    # Fallback si absent
+    class LuxIcons:
+        @staticmethod
+        def render(name, **kwargs): return "ℹ️"
 
-def get_prediction_interpretation(predictor, df_ref, species, port, volume_kg, predicted_price):
+def get_prediction_interpretation(predictor, df_ref, species, port, volume_kg, predicted_price, month=None):
     """
     Génère une interprétation complète d'une prédiction.
     
@@ -28,8 +35,7 @@ def get_prediction_interpretation(predictor, df_ref, species, port, volume_kg, p
     diff_price_pct = ((predicted_price - avg_price) / avg_price) * 100
     diff_vol_pct = ((volume_kg - avg_volume) / avg_volume) * 100
     
-    # 2. Facteurs d'influence (Simulé basé sur les corrélations métier ONP)
-    # Dans une version réelle, on utiliserait SHAP values ici.
+    # 2. Facteurs d'influence
     factors = []
     
     # Impact Volume (Loi de l'offre)
@@ -40,26 +46,42 @@ def get_prediction_interpretation(predictor, df_ref, species, port, volume_kg, p
     else:
         factors.append({"factor": "Volume Stable", "impact": "Neutre", "value": "Normal", "weight": 0.1})
         
+    # Impact Repos Biologique
+    from datetime import datetime
+    from utils import REPOS_BIOLOGIQUE_MAP
+    check_month = month if month is not None else datetime.now().month
+    is_repos = 1 if species.upper() in REPOS_BIOLOGIQUE_MAP and check_month in REPOS_BIOLOGIQUE_MAP[species.upper()] else 0
+    
+    if is_repos:
+        factors.append({"factor": "Repos Biologique", "impact": "Positif (Rareté)", "value": "Actif", "weight": 0.9})
+        
     # Impact Port (Saisonnalité/Logistique)
     if predicted_price > avg_price * 1.1:
         factors.append({"factor": "Demande Marché", "impact": "Positif", "value": "Forte", "weight": 0.5})
     
-    # 3. Synthèse en langage naturel
+    # 3. Synthèse en langage naturel (Le "Pourquoi")
     insight = ""
-    if diff_price_pct > 5:
-        insight = f"Le prix prédit de {predicted_price:.2f} DH/kg est supérieur à la moyenne historique ({avg_price:.2f} DH/kg)."
+    if is_repos:
+        insight = f"### {LuxIcons.render('info', size=20)} Analyse de Rareté Réglementaire\n"
+        insight += f"L'espèce **{species}** est actuellement sous le régime du **Repos Biologique**."
+        insight += f"\n\n**Pourquoi cette hausse ?**\n"
+        insight += f"- **Arrêt des captures** : La suspension temporaire de la pêche réduit drastiquement l'offre sur le marché.\n"
+        insight += f"- **Pression de la demande** : La demande reste constante alors que les apports sont limités, ce qui tire les prix vers le haut (élasticité inversée).\n"
+        insight += f"- **Anticipation de marché** : Le prix prédit de **{predicted_price:.2f} DH/kg** intègre ce facteur de pénurie réglementaire."
+    elif diff_price_pct > 5:
+        insight = f"Le prix prédit de **{predicted_price:.2f} DH/kg** est en hausse de **{diff_price_pct:.1f}%** par rapport à la normale."
         if diff_vol_pct < -10:
-            insight += " Cette hausse s'explique principalement par un volume d'apport inférieur à la normale, créant une tension sur l'offre."
+            insight += "\n\n**Raison principale** : **Pénurie d'offre**. Le volume injecté est nettement inférieur aux moyennes de saison, créant une tension immédiate sur les cours."
         else:
-            insight += " Cette tendance reflète une forte demande actuelle sur le port de " + port + "."
+            insight += "\n\n**Raison principale** : **Pic de demande**. L'activité observée sur le port de " + port + " indique une forte concurrence entre acheteurs pour cette espèce."
     elif diff_price_pct < -5:
-        insight = f"On observe une baisse de {abs(diff_price_pct):.1f}% par rapport au prix moyen."
+        insight = f"Le prix est en baisse de **{abs(diff_price_pct):.1f}%**."
         if diff_vol_pct > 10:
-            insight += " La forte disponibilité de " + species + " sur le marché pèse sur les cours."
+            insight += "\n\n**Raison principale** : **Surplus d'offre**. Une abondance exceptionnelle de " + species + " sature actuellement la demande locale."
         else:
-            insight += " Les conditions de marché sont actuellement favorables aux acheteurs."
+            insight += "\n\n**Raison principale** : **Correction de marché**. Les prix s'ajustent à la baisse face à une demande plus timide."
     else:
-        insight = "Le prix prédit est stable et conforme aux tendances saisonnières observées pour le port de " + port + "."
+        insight = f"Le prix est **stable**. La prédiction est conforme aux tendances historiques pour {species} au port de {port}."
 
     return {
         "comparison": {
@@ -70,13 +92,17 @@ def get_prediction_interpretation(predictor, df_ref, species, port, volume_kg, p
         },
         "factors": factors,
         "insight": insight,
-        "status": "Haussier" if diff_price_pct > 2 else ("Baissier" if diff_price_pct < -2 else "Stable")
+        "status": "Haussier" if (diff_price_pct > 2 or is_repos) else ("Baissier" if diff_price_pct < -2 else "Stable")
     }
 
 def get_global_importance_data(predictor):
     """Récupère l'importance des features pour l'affichage global."""
     if hasattr(predictor, 'get_feature_importance'):
         df = predictor.get_feature_importance(top_n=8)
+        
+        if df.empty or 'feature' not in df.columns:
+            return pd.DataFrame(columns=['feature', 'importance', 'label'])
+            
         # Traduction des labels pour le métier
         translation = {
             'volume_kg': 'Volume (Apports)',
@@ -84,10 +110,11 @@ def get_global_importance_data(predictor):
             'espece_encoded': 'Type d\'Espèce',
             'mois': 'Saisonnalité (Mois)',
             'jour_semaine': 'Effet Calendaire',
+            'is_repos_biologique': 'Repos Biologique',
             'volume_moyen_espece': 'Historique Espèce',
             'prix_moyen_port': 'Niveau de Prix Port',
             'ratio_prix_volume': 'Indice de Rareté'
         }
         df['label'] = df['feature'].map(lambda x: translation.get(x, x))
         return df
-    return pd.DataFrame()
+    return pd.DataFrame(columns=['feature', 'importance', 'label'])

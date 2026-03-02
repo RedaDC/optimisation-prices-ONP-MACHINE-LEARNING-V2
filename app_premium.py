@@ -22,6 +22,7 @@ import warnings
 import io
 from datetime import datetime
 import time
+import base64
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
@@ -29,12 +30,13 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 # Import des modules personnalisés
 from utils import (
     clean_data, create_features, calculate_financial_metrics,
-    get_price_statistics, simulate_price_impact
+    get_price_statistics, simulate_price_impact, REPOS_BIOLOGIQUE_MAP
 )
 from eda_analysis import (
     plot_price_distribution_by_species, plot_price_by_port,
     plot_volume_price_relationship, plot_seasonal_analysis,
-    plot_price_trends, plot_top_species_by_volume, plot_port_activity_heatmap
+    plot_price_trends, plot_top_species_by_volume, plot_port_activity_heatmap,
+    plot_regional_activity_heatmap
 )
 from financial_analysis import (
     plot_revenue_by_port, plot_revenue_contribution_by_species,
@@ -52,6 +54,7 @@ from design_system import (
     ColorPalette, inject_css_styles, PremiumComponents, LuxIcons,
     apply_premium_plotly_styling, create_premium_template
 )
+from logistics_optimizer import suggest_optimal_ports, get_market_saturation_alerts
 from report_generator import create_institutional_word_report, create_reduction_word_report, create_comparison_word_report
 from dynamic_logo import (
     display_premium_onp_logo, create_animated_kpi_header,
@@ -100,11 +103,11 @@ def load_default_data():
         if os.path.exists(data_file):
             df = pd.read_csv(data_file)
         else:
-            st.error(f"⚠️ Fichier de données introuvable.")
+            st.error(f"Fichier de données introuvable.")
             return None
 
         if df is None or df.empty:
-            st.error(f"⚠️ Le fichier {data_file} est vide.")
+            st.error(f"Le fichier {data_file} est vide.")
             return None
                 
         # Compléter les colonnes manquantes
@@ -116,7 +119,7 @@ def load_default_data():
         df = create_features(df)
         
         if df.empty:
-            st.warning("⚠️ Les données ont été filtrées à 100% lors du nettoyage (Outliers/Negative values).")
+            st.warning("Les données ont été filtrées à 100% lors du nettoyage (Outliers/Negative values).")
             return None
             
         print(f"DONE: {len(df)} lignes chargees avec succes")
@@ -153,9 +156,75 @@ def initialize_predictor(df):
         st.error(f"Erreur lors de l'initialisation du modèle: {e}")
         return None
 
+def render_external_conditions(port_name=None):
+    """Rend un tableau de bord des facteurs exogènes (Météo/Carburant) réels ou simulés."""
+    from utils import get_external_features, get_real_marine_weather, get_national_weather_summary, get_real_fuel_price, REGION_MAP
+    
+    # 1. Carburant par Région
+    port_name_up = str(port_name).upper().strip() if port_name else "CASABLANCA"
+    current_region = REGION_MAP.get(port_name_up, "CENTRE")
+    fuel_price = get_real_fuel_price(region=current_region)
+    
+    # Labels réalistes pour les régimes de prix
+    region_labels = {
+        "NORD": "Standard (Nord)",
+        "CENTRE": "Standard (Centre)",
+        "SUD": "Standard (Souss)",
+        "GRAND_SUD": "GRAND SUD (Exonéré)"
+    }
+    fuel_label = region_labels.get(current_region, "Standard")
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"#### {LuxIcons.render('finance', size=20, color='#F59E0B')} Carburant {current_region}", unsafe_allow_html=True)
+    st.sidebar.markdown(f"""
+    <div style="background: rgba(245, 158, 11, 0.05); padding: 12px; border-radius: 10px; border-left: 4px solid #F59E0B;">
+        <p style="margin:0; font-size: 0.7rem; color: #64748B; font-weight: 700;">RÉGIME : {fuel_label}</p>
+        <p style="margin:4px 0; font-size: 1.2rem; font-weight: 800; color: #B45309;">{fuel_price:.2f} DH/L</p>
+        <p style="margin:0; font-size: 0.65rem; color: #94A3B8;">Localisation : {port_name_up}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 2. Comparatif National des Prix (Demande Utilisateur)
+    with st.sidebar.expander(f"{LuxIcons.render('search', size=16, color='#64748B')} Comparatif Nord vs Sud", expanded=False):
+        for reg in ["NORD", "CENTRE", "SUD", "GRAND_SUD"]:
+            p = get_real_fuel_price(region=reg)
+            is_current = " (Actuel)" if reg == current_region else ""
+            color = "#B45309" if reg == current_region else "#64748B"
+            st.markdown(f"""
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px;">
+                <span style="color: {color}; font-weight: {'800' if is_current else '400'};">{reg}{is_current}</span>
+                <span style="font-weight: 700;">{p:.2f} DH</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # 3. Synthèse Météo Nationale
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"#### {LuxIcons.render('anchor', size=20, color='#0EA5E9')} Météo du Royaume", unsafe_allow_html=True)
+    
+    weather_summary = get_national_weather_summary()
+    
+    for label, data in weather_summary.items():
+        color = "#EF4444" if data['tempete'] else "#10B981"
+        st.sidebar.markdown(f"""
+        <div style="background: rgba(15, 23, 42, 0.03); padding: 8px 12px; border-radius: 8px; border-left: 3px solid {color}; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <p style="margin:0; font-size: 0.65rem; color: #64748B; font-weight: 800;">{label}</p>
+                <p style="margin:0; font-size: 0.8rem; font-weight: 700; color: #0F172A;">{data['port']}</p>
+            </div>
+            <div style="text-align: right;">
+                <p style="margin:0; font-size: 0.75rem; font-weight: 700; color: {color};">{data['wind']:.0f} km/h</p>
+                <p style="margin:0; font-size: 0.65rem; color: #94A3B8;">Mer : {data['wave']:.1f}m</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
 # ==================== COMPOSANTS PERSONNALISÉS ====================
 def render_header():
-    """Rend l'en-tête premium de l'application avec logo dynamique"""
+    """Rend l'en-tête premium favori de l'application avec logo dynamique"""
+    st.markdown("""
+    <div style="background: #0F172A; margin: -1rem -5rem 2rem -5rem; padding: 1rem 5rem; border-bottom: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+    """, unsafe_allow_html=True)
+    
     col1, col2, col3 = st.columns([0.8, 4, 0.8])
     
     with col1:
@@ -163,52 +232,42 @@ def render_header():
     
     with col2:
         st.markdown("""
-        <div style="text-align: center; padding: 1.5rem 0;" class="fade-in-down">
+        <div style="text-align: center; padding: 0.5rem 0;">
             <h1 style="
                 margin: 0;
-                font-size: 2.8rem;
-                font-weight: 800;
-                background: linear-gradient(135deg, #0369A1, #0EA5E9);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
-                letter-spacing: -1px;
+                font-size: 3rem;
+                font-weight: 950;
+                color: white !important;
+                letter-spacing: -1.5px;
+                background: none !important;
+                -webkit-text-fill-color: white !important;
             ">Optimisation ONP Premium</h1>
             <p style="
-                margin: 0.5rem 0 0 0;
-                font-size: 1rem;
-                color: #64748B;
+                margin: 0.2rem 0 0 0;
+                font-size: 1.1rem;
+                color: rgba(255,255,255,0.7);
                 font-weight: 500;
-                letter-spacing: 0.5px;
-            ">Aide à la décision | Analyse &amp; prédiction des prix</p>
-            <div style="
-                margin-top: 0.75rem;
-                display: flex;
-                justify-content: center;
-                gap: 1.5rem;
-                font-size: 0.85rem;
-                color: #94A3B8;
-            ">
-                <span class="float-element">Analyses</span>
-                <span class="float-element" style="animation-delay: 0.5s;">ML</span>
-                <span class="float-element" style="animation-delay: 1s;">Simulations</span>
-                <span class="float-element" style="animation-delay: 1.5s;">Premium</span>
-            </div>
+                letter-spacing: 1px;
+                text-transform: uppercase;
+            ">Intelligence Halieutique & Pilotage Stratégique</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
-        timestamp = datetime.now().strftime("%d/%m %H:%M")
+        timestamp = datetime.now().strftime("%d/%m/%Y")
         st.markdown(f"""
         <div style="
             text-align: right;
             font-size: 0.85rem;
-            color: #94A3B8;
+            color: rgba(255,255,255,0.5);
+            padding: 0.5rem 0;
         ">
+            <div style="font-weight: 800; color: white;">DASHBOARD</div>
             <div>{timestamp}</div>
-            <div style="font-size: 0.75rem; margin-top: 0.5rem;">v2.0 Premium</div>
         </div>
         """, unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 def render_kpis(df):
     """Rend les KPIs principaux avec style premium et dynamique"""
@@ -301,85 +360,170 @@ def render_executive_command_header():
             <div style="color: #94A3B8; font-size: 0.75rem; font-weight: 600;">PORTÉE STRATÉGIQUE : HALIEUTIS 2026</div>
             <div style="width: 2px; height: 20px; background: rgba(255,255,255,0.1);"></div>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <div style="width: 6px; height: 6px; background: #0EA5E9; border-radius: 50%; animation: pulse 1s infinite;"></div>
+                <div style="width: 6px; height: 6px; background: #0EA5E9; border-radius: 50%;"></div>
                 <span style="color: #0EA5E9; font-size: 0.85rem; font-weight: 800; cursor: pointer;">COMMAND CENTER LIVE</span>
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
+def get_base64_image(image_path):
+    """Convertit une image locale en base64 ou retourne l'URL si c'est déjà une URL."""
+    if not image_path:
+        return ""
+    if str(image_path).startswith("http"):
+        return image_path
+    try:
+        mime_type = "image/jpeg"
+        if str(image_path).lower().endswith(".png"): mime_type = "image/png"
+        elif str(image_path).lower().endswith(".gif"): mime_type = "image/gif"
+        elif str(image_path).lower().endswith(".webp"): mime_type = "image/webp"
+        
+        with open(image_path, "rb") as img_file:
+            encoded_string = base64.b64encode(img_file.read()).decode()
+            return f"data:{mime_type};base64,{encoded_string}"
+    except Exception as e:
+        print(f"Error encoding image {image_path}: {e}")
+        return image_path
 
 def render_onp_hero():
-    """Bannière hero cinématographique avec typographie animée et badges premium."""
+    """Bannière hero institutionnelle épurée avec l'image choisie par l'utilisateur."""
     try:
-        html_content = """
-        <div class="cinematic-container" style="
+        # Priorité à l'image fournie par l'utilisateur
+        hero_img_path = get_image_path("hero_user")
+        hero_image = get_base64_image(hero_img_path)
+        
+        # Fallback robuste
+        if not hero_image or (isinstance(hero_image, str) and len(hero_image) < 100 and not hero_image.startswith("http")):
+            hero_image = "https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?auto=format&fit=crop&w=1920&q=80"
+            
+        st.markdown(f"""
+        <div style="
             position: relative;
-            border-radius: 30px;
+            border-radius: 28px;
             overflow: hidden;
-            margin-bottom: 3rem;
-            box-shadow: 0 30px 60px -12px rgba(15, 23, 42, 0.2);
-            height: 580px;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            margin-bottom: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            height: 480px;
+            background: #0B1120 url('{hero_image}');
+            background-size: cover;
+            background-position: center 30%;
+            border: 1px solid rgba(255,255,255,0.1);
         ">
-            <div style="position: absolute; top: 2rem; left: 4rem; display: flex; gap: 1rem; z-index: 10;">
-                <span class="badge-premium" style="display: flex; align-items: center; gap: 8px;">
-                    <div style="width: 8px; height: 8px; background: #10B981; border-radius: 50%; animation: pulse 2s infinite;"></div>
-                    Live Market Pulse
-                </span>
-            </div>
-
-            <div class="image-overlay-premium" style="
+            <!-- Overlay très sombre et dégradé pour garantir une lisibilité absolue du texte blanc -->
+            <div style="
                 position: absolute;
                 top: 0; left: 0; right: 0; bottom: 0;
                 display: flex; flex-direction: column; justify-content: center;
-                padding: 4rem; z-index: 2;
+                padding: 5rem; z-index: 2;
+                background: linear-gradient(90deg, rgba(11, 17, 32, 0.98) 0%, rgba(11, 17, 32, 0.7) 100%);
             ">
-                <div style="color: #0EA5E9; font-weight: 800; font-size: 1.2rem; letter-spacing: 5px; text-transform: uppercase; margin-bottom: 1.5rem;">
-                    Office National des Pêches
+                <div style="color: white; opacity: 1.0; font-weight: 800; font-size: 1.15rem; letter-spacing: 6px; text-transform: uppercase; margin-bottom: 1.5rem; text-shadow: 0 2px 15px rgba(0,0,0,0.9);">
+                    Performance Halieutique
                 </div>
-                <h1 class="glow-text" style="color: white !important; font-size: 5.5rem !important; font-weight: 900 !important; margin: 0; line-height: 0.95 !important;">
-                    L'Économie Bleue <br/><span style="color: #0EA5E9;">en Temps Réel</span>
+                <h1 class="hero-title" style="color: white !important; font-size: 5.2rem !important; font-weight: 950 !important; margin: 0; line-height: 1.0 !important; letter-spacing: -2px; text-shadow: 0 5px 25px rgba(0,0,0,1);">
+                    SOUVERAINETÉ <br/><span style="color: white !important;">HALIEUTIQUE</span>
                 </h1>
-                <p style="color: rgba(255,255,255,0.85) !important; font-size: 1.7rem !important; margin-top: 2rem; max-width: 850px; font-weight: 300 !important;">
-                    Précision, Transparence et Intelligence Artificielle au service de la souveraineté halieutique du Royaume.
+                <p style="color: white !important; font-size: 1.7rem !important; margin-top: 1.5rem; max-width: 750px; font-weight: 500 !important; line-height: 1.4; letter-spacing: 0.5px; opacity: 1.0; text-shadow: 0 3px 15px rgba(0,0,0,1);">
+                    Intelligence augmentée pour la valorisation des produits de la mer.
                 </p>
-                
-                <div style="display: flex; gap: 4rem; margin-top: 4rem;">
-                     <div style="border-left: 2px solid rgba(14, 165, 233, 0.4); padding-left: 1.5rem;">
-                        <div style="color: #0EA5E9; font-weight: 800; font-size: 2.2rem;">800k</div>
-                        <div style="color: white; font-size: 0.85rem; opacity: 0.6; text-transform: uppercase;">Ventes Analysées</div>
-                     </div>
-                     <div style="border-left: 2px solid rgba(16, 185, 129, 0.4); padding-left: 1.5rem;">
-                        <div style="color: #10B981; font-weight: 800; font-size: 2.2rem;">22</div>
-                        <div style="color: white; font-size: 0.85rem; opacity: 0.6; text-transform: uppercase;">Ports Connectés</div>
-                     </div>
-                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"Erreur de rendu Hero: {e}")
+
+
+def render_hero_stats():
+    """Rend le bloc de statistiques institutionnelles."""
+    try:
+        st.markdown(f"""
+        <div style="display: flex; justify-content: center; margin-top: -4rem; margin-bottom: 4rem; position: relative; z-index: 99;">
+            <div style="display: flex; gap: 4.5rem; background: #0F172A; width: fit-content; padding: 2.2rem 4rem; border-radius: 24px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+                 <div style="border-left: 4px solid white; padding-left: 1.5rem;">
+                    <div style="color: white; font-weight: 900; font-size: 2.8rem; line-height: 1;">800k+</div>
+                    <div style="color: rgba(255,255,255,0.6); font-size: 0.9rem; text-transform: uppercase; font-weight: 700; letter-spacing: 2px; margin-top: 0.5rem;">Ventes</div>
+                 </div>
+                 <div style="border-left: 4px solid #0EA5E9; padding-left: 1.5rem;">
+                    <div style="color: white; font-weight: 900; font-size: 2.8rem; line-height: 1;">22</div>
+                    <div style="color: rgba(255,255,255,0.6); font-size: 0.9rem; text-transform: uppercase; font-weight: 700; letter-spacing: 2px; margin-top: 0.5rem;">Ports</div>
+                 </div>
+                 <div style="border-left: 4px solid #10B981; padding-left: 1.5rem;">
+                    <div style="color: white; font-weight: 900; font-size: 2.8rem; line-height: 1;">3500</div>
+                    <div style="color: rgba(255,255,255,0.6); font-size: 0.9rem; text-transform: uppercase; font-weight: 700; letter-spacing: 2px; margin-top: 0.5rem;">km Littoral</div>
+                 </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"Erreur de rendu Hero Stats: {e}")
+
+def render_module_hero(title, subtitle, image_key="real_port"):
+    """Bannière secondaire pour les modules internes (Analytics, ML, Simulation)."""
+    try:
+        img_url = get_image_path(image_key)
+        html_content = f"""
+        <div style="
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 2.5rem;
+            box-shadow: 0 10px 20px -5px rgba(15, 23, 42, 0.08);
+            height: 220px;
+            background-image: url('{img_url}');
+            background-size: cover;
+            background-position: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        ">
+            <div style="
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                display: flex; flex-direction: column; justify-content: center;
+                padding-left: 3rem; z-index: 2;
+                background: linear-gradient(90deg, rgba(3, 105, 161, 0.95) 0%, rgba(15, 23, 42, 0) 100%);
+            ">
+                <h2 style="color: white !important; font-size: 2.5rem !important; font-weight: 800 !important; margin: 0; letter-spacing: -1px;">{title}</h2>
+                <div style="height: 3px; width: 60px; background: #BAE6FD; margin: 1rem 0;"></div>
+                <p style="color: rgba(255,255,255,0.9) !important; font-size: 1.1rem !important; margin: 0; font-weight: 400; max-width: 600px;">
+                    {subtitle}
+                </p>
             </div>
         </div>
         """
         st.markdown(html_content, unsafe_allow_html=True)
     except Exception as e:
-        st.error(f"Erreur de rendu Hero: {e}")
+        st.error(f"Erreur Hero Module: {e}")
 
 def render_interactive_strategy_map():
-    """Visualisation géographique des ports stratégiques via Plotly."""
+    """Visualisation géographique exhaustive des ports stratégiques de l'ONP."""
     try:
         st.markdown("<br>", unsafe_allow_html=True)
         PremiumComponents.section_header(
-            "Cartographie Stratégique du Royaume",
-            "Déploiement ONP 100% Maroc - Maillage Territorial Complet",
+            "Maillage Territorial Complet",
+            "Déploiement stratégique sur l'ensemble du littoral du Royaume",
             "search"
         )
         
+        # Liste complète et réaliste des ports ONP
         ports_geo = pd.DataFrame([
-            {"Port": "Tanger Med", "lat": 35.88, "lon": -5.50, "Size": 45, "Zone": "Nord"},
-            {"Port": "Nador", "lat": 35.17, "lon": -2.93, "Size": 35, "Zone": "Oriental"},
-            {"Port": "Casablanca", "lat": 33.57, "lon": -7.59, "Size": 55, "Zone": "Centre"},
-            {"Port": "Agadir", "lat": 30.43, "lon": -9.60, "Size": 50, "Zone": "Souss"},
-            {"Port": "Laâyoune", "lat": 27.09, "lon": -13.41, "Size": 45, "Zone": "Sahara"},
-            {"Port": "Dakhla", "lat": 23.68, "lon": -15.96, "Size": 60, "Zone": "Sahara"},
-            {"Port": "Boujdour", "lat": 26.13, "lon": -14.48, "Size": 25, "Zone": "Sahara"},
-            {"Port": "Tarfaya", "lat": 27.94, "lon": -12.92, "Size": 20, "Zone": "Sahara"}
+            {"Port": "Tanger Med", "lat": 35.88, "lon": -5.50, "Size": 55, "Zone": "Nord"},
+            {"Port": "Tanger Ville", "lat": 35.79, "lon": -5.81, "Size": 40, "Zone": "Nord"},
+            {"Port": "M'diq", "lat": 35.68, "lon": -5.32, "Size": 30, "Zone": "Nord"},
+            {"Port": "Al Hoceima", "lat": 35.25, "lon": -3.93, "Size": 35, "Zone": "Nord"},
+            {"Port": "Nador", "lat": 35.17, "lon": -2.93, "Size": 45, "Zone": "Oriental"},
+            {"Port": "Larache", "lat": 35.19, "lon": -6.15, "Size": 35, "Zone": "Nord"},
+            {"Port": "Mehdia", "lat": 34.26, "lon": -6.66, "Size": 30, "Zone": "Centre"},
+            {"Port": "Casablanca", "lat": 33.57, "lon": -7.59, "Size": 60, "Zone": "Centre"},
+            {"Port": "Mohammedia", "lat": 33.71, "lon": -7.40, "Size": 35, "Zone": "Centre"},
+            {"Port": "El Jadida", "lat": 33.25, "lon": -8.50, "Size": 40, "Zone": "Centre"},
+            {"Port": "Safi", "lat": 32.30, "lon": -9.24, "Size": 50, "Zone": "Centre"},
+            {"Port": "Essaouira", "lat": 31.51, "lon": -9.77, "Size": 45, "Zone": "CentreS"},
+            {"Port": "Agadir", "lat": 30.43, "lon": -9.60, "Size": 55, "Zone": "Souss"},
+            {"Port": "Sidi Ifni", "lat": 29.38, "lon": -10.18, "Size": 30, "Zone": "Souss"},
+            {"Port": "Tan-Tan", "lat": 28.50, "lon": -11.33, "Size": 40, "Zone": "Sud"},
+            {"Port": "Tarfaya", "lat": 27.94, "lon": -12.92, "Size": 25, "Zone": "Sahara"},
+            {"Port": "Laâyoune", "lat": 27.09, "lon": -13.41, "Size": 50, "Zone": "Sahara"},
+            {"Port": "Boujdour", "lat": 26.13, "lon": -14.48, "Size": 30, "Zone": "Sahara"},
+            {"Port": "Dakhla", "lat": 23.68, "lon": -15.96, "Size": 65, "Zone": "Sahara"},
         ])
         
         fig = px.scatter_mapbox(
@@ -391,13 +535,13 @@ def render_interactive_strategy_map():
             size="Size",
             color="Size",
             color_continuous_scale="Blues",
-            zoom=4,
-            center=dict(lat=28.5, lon=-11.5),
+            zoom=4.2,
+            center=dict(lat=29.0, lon=-10.0),
             mapbox_style="carto-positron"
         )
         
         fig.update_layout(
-            height=700,
+            height=750,
             margin={"r":0,"t":0,"l":0,"b":0},
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -405,7 +549,7 @@ def render_interactive_strategy_map():
             hoverlabel=dict(bgcolor="white", font_size=16, font_family="Outfit")
         )
         
-        st.plotly_chart(fig, width="stretch", config={'displayModeBar': False})
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     except Exception as e:
         st.error(f"Erreur d'affichage de la carte : {e}")
 
@@ -429,7 +573,7 @@ def render_price_weather():
     for col, w in zip(cols, weather_data):
         with col:
             st.markdown(f"""
-            <div class="metric-card glow-pulse-border" style="text-align: center; border-bottom: 3px solid {w['color']};">
+            <div class="metric-card" style="text-align: center; border-bottom: 3px solid {w['color']};">
                 <div style="color: {w['color']}; font-size: 2.5rem; font-weight: 900; line-height: 1;">{w['val']}</div>
                 <h4 style="margin: 1.5rem 0 0.5rem 0; font-size: 1.3rem; font-weight: 800; color: #0F172A;">{w['species']}</h4>
                 <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -445,25 +589,40 @@ def render_institutional_bulletin():
     col_a, col_b = st.columns([1, 1.2])
     
     with col_a:
-        st.markdown(f"""
-        <div style="background: #0F172A; padding: 3rem; border-radius: 30px; color: white; height: 100%;">
-            {LuxIcons.render('shield', size=40, color='#0EA5E9', extra_style='margin-bottom: 2rem;')}
-            <h2 style="color: white !important; font-size: 2.2rem; font-weight: 800;">Bulletin Stratégique</h2>
-            <p style="color: #94A3B8; font-size: 1.1rem; line-height: 1.8; margin-top: 1.5rem;">
+        # Conteneur sombre avec texte blanc explicite
+        content_html = f"""
+        <div style="
+            background-color: #0F172A; 
+            padding: 40px; 
+            border-radius: 24px; 
+            color: #FFFFFF; 
+            height: 100%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        ">
+            <div style="margin-bottom: 20px;">
+                {LuxIcons.render('shield', size=40, color='#0EA5E9')}
+            </div>
+            <h2 style="color: #FFFFFF; font-size: 2rem; font-weight: 800; margin-bottom: 20px;">
+                Bulletin Stratégique
+            </h2>
+            <p style="color: #FFFFFF !important; font-size: 1.15rem; line-height: 1.8; font-weight: 500; margin-top: 20px; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
                 Le programme d'optimisation machine learning s'inscrit dans le cadre du déploiement national Halieutis. 
                 L'objectif de 2026 est la numérisation complète des flux de crie à travers les 22 ports stratégiques du Royaume.
             </p>
-            <div style="margin-top: 3rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.8rem; color: #64748B;">NUMÉRISATION T1 2026</span>
-                    <span style="color: #10B981; font-weight: 800;">EN COURS</span>
+            <div style="margin-top: 40px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 0.75rem; color: #FFFFFF; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
+                        Numérisation T1 2026
+                    </span>
+                    <span style="color: #10B981; font-weight: 800; font-size: 0.85rem;">EN COURS</span>
                 </div>
-                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; margin-top: 1rem;">
-                    <div style="width: 75%; height: 100%; background: #0EA5E9; border-radius: 3px; box-shadow: 0 0 10px #0EA5E9;"></div>
+                <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+                    <div style="width: 75%; height: 100%; background: #0EA5E9; border-radius: 4px;"></div>
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(content_html, unsafe_allow_html=True)
         
     with col_b:
         st.markdown(f"#### {LuxIcons.render('report', size=20, color='#0EA5E9', extra_style='margin-right: 10px;')} Évolutions Clés", unsafe_allow_html=True)
@@ -475,13 +634,13 @@ def render_institutional_bulletin():
         
         for b in bulletins:
             st.markdown(f"""
-            <div style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem; background: white; padding: 1.25rem; border-radius: 20px; border: 1px solid #F1F5F9;">
-                <div style="background: rgba(14, 165, 233, 0.1); color: #0EA5E9; padding: 0.75rem; border-radius: 12px; font-weight: 800; font-size: 0.8rem; min-width: 70px; text-align: center;">
+            <div style="display: flex; gap: 15px; margin-bottom: 15px; background: #FFFFFF; padding: 20px; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                <div style="background: rgba(14, 165, 233, 0.1); color: #0EA5E9; padding: 10px; border-radius: 10px; font-weight: 800; font-size: 0.75rem; min-width: 60px; text-align: center; height: fit-content;">
                     {b['date']}
                 </div>
                 <div>
-                    <h5 style="margin: 0; color: #0F172A; font-weight: 700;">{b['title']}</h5>
-                    <p style="margin: 4px 0 0 0; color: #64748B; font-size: 0.85rem;">{b['desc']}</p>
+                    <h5 style="margin: 0; color: #0F172A; font-weight: 700; font-size: 1rem;">{b['title']}</h5>
+                    <p style="margin: 4px 0 0 0; color: #64748B; font-size: 0.9rem; line-height: 1.4;">{b['desc']}</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -494,31 +653,81 @@ def render_onp_edito():
         unsafe_allow_html=True
     )
 
-def render_live_market_pulse():
-    """Composant créatif visualisant le flux de données en temps réel."""
+def render_live_market_pulse(df):
+    """Composant créatif visualisant le flux de données en temps réel basé sur les moyennes historiques."""
     st.markdown("<br><br>", unsafe_allow_html=True)
     PremiumComponents.section_header(
         "Live Market Pulse",
-        "Flux de transactions et dynamisme des halles en direct",
+        "Dynamisme des halles basé sur les volumes quotidiens moyens",
         "chart"
     )
     
-    # Simulation Data for Pulse Nodes
-    ports_flow = [
-        {"name": "Agadir", "vol": "42.5 T", "status": "Stable", "activity": 85},
-        {"name": "Essaouira", "vol": "18.2 T", "status": "Hausse", "activity": 60},
-        {"name": "Tanger", "vol": "31.0 T", "status": "Intense", "activity": 95},
-        {"name": "Nador", "vol": "12.4 T", "status": "Stable", "activity": 40},
-    ]
+    if df is None or df.empty:
+        st.warning("Données insuffisantes pour le Market Pulse.")
+        return
+
+    # Calcul des volumes moyens par port
+    # On suppose que df contient 'port', 'volume_kg' et 'date_vente' (ou on utilise le nombre de records comme proxy si date_vente est absente)
+    try:
+        if 'date_vente' in df.columns:
+            # Nombre de jours uniques dans le dataset
+            nb_jours = df['date_vente'].nunique()
+            if nb_jours < 1: nb_jours = 1
+            
+            port_stats = df.groupby('port')['volume_kg'].sum() / nb_jours
+        else:
+            # Fallback : on divise par 30 si on n'a que des données mensuelles sans dates précises
+            port_stats = df.groupby('port')['volume_kg'].sum() / 30
+            
+        # Liste des ports dominants stratégiques au Maroc
+        DOMINANT_PORTS = ['AGADIR', 'DAKHLA', 'CASABLANCA', 'TANGER', 'LAAYOUNE', 'SAFI']
+        
+        # Séparer les ports dominants des autres
+        available_ports = port_stats.index.str.upper()
+        main_ports = [p for p in DOMINANT_PORTS if any(p in str(ap) for ap in available_ports)]
+        
+        # Sélectionner les ports à afficher (en priorité les dominants, puis les plus gros volumes)
+        selected_port_names = []
+        for p in main_ports:
+            # Trouver le nom exact dans l'index
+            exact_name = next(ap for ap in port_stats.index if p in str(ap).upper())
+            selected_port_names.append(exact_name)
+            
+        remaining_slots = 4 - len(selected_port_names)
+        if remaining_slots > 0:
+            other_ports = port_stats.drop(selected_port_names).sort_values(ascending=False).head(remaining_slots)
+            selected_port_names.extend(other_ports.index.tolist())
+            
+        # Limiter à 4 ports pour l'affichage standard
+        top_ports = port_stats.loc[selected_port_names[:4]]
+        
+        ports_flow = []
+        max_vol_ref = port_stats.max()
+        for p_name, vol_avg in top_ports.items():
+            vol_t = vol_avg / 1000 # Conversion en tonnes
+            
+            # Simulation d'activité et statut basé sur le volume relatif au max national
+            activity = min(int((vol_avg / (max_vol_ref + 1) * 100) + 20), 98) 
+            status = "Intense" if activity > 75 else ("Stable" if activity > 45 else "Modéré")
+            
+            ports_flow.append({
+                "name": str(p_name).replace('HALLE ', '').replace('PORT ', '').title(),
+                "vol": f"{vol_t:.1f} T",
+                "status": status,
+                "activity": activity
+            })
+    except Exception as e:
+        st.error(f"Erreur calcul Market Pulse: {e}")
+        return
     
     cols = st.columns(4)
     for col, port in zip(cols, ports_flow):
         with col:
             activity_color = "#10B981" if port['activity'] > 70 else ("#0EA5E9" if port['activity'] > 50 else "#94A3B8")
             st.markdown(f"""
-            <div class="metric-card market-pulse-node" style="border-top: 3px solid {activity_color}; padding: 1.5rem;">
+            <div class="metric-card" style="border-top: 3px solid {activity_color}; padding: 1.5rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <span style="background: {activity_color}; width: 10px; height: 10px; border-radius: 50%; animation: pulse 1.5s infinite;"></span>
+                    <span style="background: {activity_color}; width: 10px; height: 10px; border-radius: 50%;"></span>
                     <span style="font-size: 0.7rem; font-weight: 800; color: #94A3B8; text-transform: uppercase;">Port Actif</span>
                 </div>
                 <h4 style="margin: 0; color: #0F172A; font-size: 1.25rem; font-weight: 800;">{port['name']}</h4>
@@ -566,9 +775,9 @@ def render_onp_secteur_section():
     
     with col_text:
         PremiumComponents.section_header(
-            "Ancrage Institutionnel",
-            "L'ONP, pilier de l'économie bleue depuis 1969",
-            "home"
+            "Ancrage Halieutique",
+            "L'ONP, pilier de l'économie bleue marocaine",
+            "anchor"
         )
         st.markdown(
             f'<div style="background: white; padding: 2.5rem; border-radius: 24px; border: 1px solid #E2E8F0; box-shadow: 0 10px 30px rgba(0,0,0,0.03);">'
@@ -583,11 +792,11 @@ def render_onp_secteur_section():
     with col_img:
         st.markdown(f"""
         <div class="portfolio-card" style="height: 480px;">
-            <img src="{get_image_path('port_agadir')}" style="width: 100%; height: 100%; object-fit: cover;" />
+            <img src="{get_base64_image(get_image_path('port_agadir_new'))}" style="width: 100%; height: 100%; object-fit: cover;" />
             <div class="portfolio-info" style="opacity: 1; bottom: 0;">
                 <p style="margin: 0; font-size: 0.85rem; font-weight: 800; color: #0EA5E9; text-transform: uppercase;">Infrastructure</p>
                 <h4 style="margin: 8px 0 0 0; font-size: 1.5rem; font-weight: 800; color: white;">Port d'Agadir</h4>
-                <p style="color: rgba(255,255,255,0.7); margin-top: 0.5rem;">{IMAGE_CAPTIONS['port_agadir']}</p>
+                <p style="color: rgba(255,255,255,0.7); margin-top: 0.5rem;">{IMAGE_CAPTIONS['port_agadir_new']}</p>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -599,16 +808,16 @@ def render_onp_secteur_section():
     col1, col2, col3 = st.columns(3)
     
     gallery_items = [
-        {"key": "port_essaouira", "label": "Tradition"},
-        {"key": "halle_poisson", "label": "Halle Digitale"},
-        {"key": "bateaux_bleus", "label": "Flotte"}
+        {"key": "halle_onp_1", "label": "Modernisation"},
+        {"key": "halle_onp_2", "label": "Digitalisation"},
+        {"key": "port_onp_1", "label": "Souveraineté"}
     ]
     
     for col, item in zip([col1, col2, col3], gallery_items):
         with col:
             st.markdown(f"""
             <div class="portfolio-card" style="height: 350px;">
-                <img src="{get_image_path(item['key'])}" style="width: 100%; height: 100%; object-fit: cover;" />
+                <img src="{get_base64_image(get_image_path(item['key']))}" style="width: 100%; height: 100%; object-fit: cover;" />
                 <div class="portfolio-info">
                     <p style="margin: 0; font-size: 0.75rem; font-weight: 800; color: #0EA5E9; text-transform: uppercase;">{item['label']}</p>
                     <h4 style="margin: 5px 0 0 0; font-size: 1.1rem; font-weight: 700; color: white;">{IMAGE_CAPTIONS[item['key']]}</h4>
@@ -616,13 +825,137 @@ def render_onp_secteur_section():
             </div>
             """, unsafe_allow_html=True)
 
+def render_maritime_showcase():
+    """Section Showcase Maritime : Grande image immersive avec texte institutionnel."""
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    col_img, col_text = st.columns([1.5, 1])
+    
+    with col_img:
+        st.markdown(f"""
+        <div style="
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.1);
+            height: 550px;
+        ">
+            <img src="{get_base64_image(get_image_path('showcase_secondary'))}" style="width: 100%; height: 100%; object-fit: cover;" />
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_text:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        PremiumComponents.section_header(
+            "Efficacité Halieutique",
+            "Le Maroc, leader régional de l'économie bleue",
+            "anchor"
+        )
+        st.markdown(f"""
+        <div style="background: white; padding: 2.5rem; border-radius: 20px; border: 1px solid #E2E8F0; margin-top: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+            <p style="font-size: 1.15rem; color: #0F172A; line-height: 1.8; margin: 0; font-weight: 500;">
+                Le secteur de la pêche maritime constitue un pilier stratégique du Royaume. 
+                Avec plus de 3 500 km de côtes, le Maroc se positionne comme le premier producteur de poissons en Afrique 
+                et assure une souveraineté halieutique durable.
+            </p>
+            <p style="font-size: 1.15rem; color: #0F172A; line-height: 1.8; margin-top: 1.5rem; font-weight: 500;">
+                L'Office National des Pêches (ONP) pilote cette dynamique à travers le Plan Halieutis, 
+                modernisant les infrastructures et digitalisant la filière pour une valorisation optimale de la ressource.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+def render_national_dashboard():
+    """Composant visuel montrant la situation météo et carburant sur tout le Royaume."""
+    from utils import get_national_weather_summary, get_real_fuel_price
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    PremiumComponents.section_header(
+        "Situation Halieutique Nationale",
+        "Conditions en temps réel sur l'ensemble du littoral marocain",
+        "anchor"
+    )
+    
+    weather_summary = get_national_weather_summary()
+    
+    # 1. Carburant par Zone
+    st.markdown("##### Index Carburant par Zone")
+    f_col1, f_col2 = st.columns(2)
+    with f_col1:
+        price_nc = get_real_fuel_price(region="CENTRE")
+        st.markdown(f"""
+        <div style="background: white; padding: 20px; border-radius: 15px; border-top: 4px solid #F59E0B; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size: 0.8rem; color: #64748B; font-weight: 700;">NORD & CENTRE</p>
+            <p style="margin:5px 0; font-size: 1.8rem; font-weight: 900; color: #B45309;">{price_nc:.2f} <span style="font-size: 1rem;">DH/L</span></p>
+            <p style="margin:0; font-size: 0.8rem; color: #94A3B8;">Régime Standard</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with f_col2:
+        price_gs = get_real_fuel_price(region="GRAND_SUD")
+        st.markdown(f"""
+        <div style="background: white; padding: 20px; border-radius: 15px; border-top: 4px solid #10B981; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size: 0.8rem; color: #64748B; font-weight: 700;">PROVINCES DU SUD (DAKHLA/LAAYOUNE)</p>
+            <p style="margin:5px 0; font-size: 1.8rem; font-weight: 900; color: #065F46;">{price_gs:.2f} <span style="font-size: 1rem;">DH/L</span></p>
+            <p style="margin:0; font-size: 0.8rem; color: #059669; font-weight: 600;">Exonération (Détaxé)</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # 2. Météo par Port Clé
+    st.markdown("##### État de la Mer par Port Stratégique")
+    cols = st.columns(len(weather_summary))
+    for col, (label, data) in zip(cols, weather_summary.items()):
+        with col:
+            color = "#EF4444" if data['tempete'] else "#0EA5E9"
+            bg_color = "rgba(239, 68, 68, 0.05)" if data['tempete'] else "rgba(14, 165, 233, 0.05)"
+            st.markdown(f"""
+            <div style="background: {bg_color}; padding: 20px; border-radius: 15px; border-bottom: 4px solid {color}; text-align: center;">
+                <p style="margin:0; font-size: 0.7rem; color: #64748B; font-weight: 800; text-transform: uppercase;">{label}</p>
+                <h4 style="margin: 8px 0; color: #0F172A; font-weight: 800;">{data['port']}</h4>
+                <div style="font-size: 1.5rem; font-weight: 900; color: {color};">{data['wind']:.0f} <span style="font-size: 0.8rem;">km/h</span></div>
+                <div style="margin-top: 5px; font-size: 0.9rem; color: #64748B; font-weight: 600;">Mer : {data['wave']:.1f}m</div>
+            </div>
+            """, unsafe_allow_html=True)
+
 def render_page_accueil(df):
     """Page d'accueil 'Elite Command Center' avec KPIs et visualizations avancées."""
-    render_executive_command_header()
-    render_header()
     render_onp_hero()
     
-    render_live_market_pulse()
+    # Priorité à la Vision et à la Situation Nationale (Temps Réel)
+    try:
+        render_maritime_showcase()
+    except Exception as e:
+        st.error(f"Erreur dans Maritime Showcase: {e}")
+        
+    try:
+        render_national_dashboard()
+    except Exception as e:
+        st.error(f"Erreur dans Dashboard National: {e}")
+        
+    try:
+        render_onp_secteur_section()
+    except Exception as e:
+        st.error(f"Erreur dans Secteur Section: {e}")
+        
+    try:
+        render_live_market_pulse(df)
+    except Exception as e:
+        st.error(f"Erreur dans Market Pulse: {e}")
+        
+    try:
+        render_institutional_bulletin()
+    except Exception as e:
+        st.error(f"Erreur dans Institutional Bulletin: {e}")
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    PremiumComponents.section_header(
+        "Intelligence Stratégique",
+        "Maillage territorial et monitoring national",
+        "anchor"
+    )
+
+    # La carte exhaustive (Analyse géographique)
+    render_interactive_strategy_map()
     
     if df.empty:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -630,13 +963,12 @@ def render_page_accueil(df):
         st.info("Veuillez réinitialiser ou ajuster vos filtres dans la barre latérale.")
         return
 
-    render_interactive_strategy_map()
-    render_price_weather()
-    
+    # Données et Résultats (KPIs et Graphiques)
+    render_hero_stats()
     render_kpis(df)
     
     PremiumComponents.section_header(
-        "Vue d'ensemble",
+        "Vue d'ensemble du Marché",
         "Visualisations avancées et tendances temporelles",
         "chart"
     )
@@ -650,14 +982,20 @@ def render_page_accueil(df):
         st.plotly_chart(fig, width="stretch")
     
     with col2:
-        st.markdown("#### Activité des ports par mois")
-        fig = plot_port_activity_heatmap(df)
-        fig = apply_premium_plotly_styling(fig)
-        st.plotly_chart(fig, width="stretch")
+        st.markdown("#### Dynamique de l'Activité Portuaire")
+        tab_reg, tab_port = st.tabs(["Vue Régionale", "Top 10 Ports"])
+        
+        with tab_reg:
+            fig_reg = plot_regional_activity_heatmap(df)
+            fig_reg = apply_premium_plotly_styling(fig_reg)
+            st.plotly_chart(fig_reg, use_container_width=True)
+            
+        with tab_port:
+            fig_port = plot_port_activity_heatmap(df)
+            fig_port = apply_premium_plotly_styling(fig_port)
+            st.plotly_chart(fig_port, use_container_width=True)
     
     # Insights Section
-    render_institutional_bulletin()
-    
     st.markdown("---")
     PremiumComponents.section_header(
         "Insights Stratégiques",
@@ -684,16 +1022,13 @@ def render_page_accueil(df):
             "Volatilité accrue en <b>hiver</b> — à monitorer attentivement",
             "warning"
         )
-    
-    render_onp_secteur_section()
 
 def render_page_analytics(df):
     """Page d'analyse des prix"""
-    render_header()
-    PremiumComponents.section_header(
-        "Analyse des prix",
-        "Exploration de la dynamique des prix",
-        "chart"
+    render_module_hero(
+        "Intelligence de Marché",
+        "Exploration approfondie de la dynamique des prix et des tendances nationales",
+        "marche_poisson"
     )
     
     tab1, tab2, tab3, tab4 = st.tabs([
@@ -734,11 +1069,10 @@ def render_page_analytics(df):
 
 def render_page_financial(df):
     """Page d'analyse financière"""
-    render_header()
-    PremiumComponents.section_header(
-        "Analyse financière",
-        "Performance économique et rentabilité",
-        "finance"
+    render_module_hero(
+        "Analyse Financière",
+        "Performance économique, rentabilité et vision stratégique des flux",
+        "sardines_poisson"
     )
     
     if df.empty:
@@ -746,10 +1080,10 @@ def render_page_financial(df):
         return
     
     # Création des onglets
-    tab1, tab2 = st.tabs(["📊 Vue Globale", "📈 Comparaison 2024-2025"])
+    tab1, tab2 = st.tabs(["Vue Globale", "Comparaison 2024-2025"])
     
     with tab1:
-        st.markdown("### 🌍 Performance Globale")
+        st.markdown("### Performance Globale")
         col1, col2 = st.columns(2)
         
         with col1:
@@ -775,7 +1109,7 @@ def render_page_financial(df):
         st.dataframe(summary_table, width="stretch", hide_index=False)
 
     with tab2:
-        st.markdown("### 🔄 Analyse Comparative : 2024 vs 2025")
+        st.markdown("### Analyse Comparative : 2024 vs 2025")
         
         # Vérification des années disponibles pour ce calcul spécifique
         # Il faut passer le DF complet (sans filtre date) idéalement, mais ici on utilise le DF filtré
@@ -798,8 +1132,8 @@ def render_page_financial(df):
             """, unsafe_allow_html=True)
             
             st.markdown("#### Décomposition Effet Prix / Volume")
-            st.info("💡 **Effet Volume** : Variation due aux quantités vendues (à prix constant). \n\n"
-                    "💡 **Effet Prix** : Variation due à l'évolution des prix (à volume constant).")
+            st.info("**Effet Volume** : Variation due aux quantités vendues (à prix constant). \n\n"
+                    "**Effet Prix** : Variation due à l'évolution des prix (à volume constant).")
             
             fig_effets = plot_price_volume_analysis(df_effects, top_n=12)
             fig_effets = apply_premium_plotly_styling(fig_effets)
@@ -826,12 +1160,12 @@ def render_page_financial(df):
             
             # Bouton de téléchargement
             st.markdown("---")
-            if st.button("📥 Télécharger Rapport Comparatif (Word)", key="btn_dl_comp"):
+            if st.button("Télécharger Rapport Comparatif (Word)", key="btn_dl_comp"):
                 with st.spinner("Génération du rapport..."):
                     file_path = create_comparison_word_report(df_effects)
                     with open(file_path, "rb") as f:
                         btn = st.download_button(
-                            label="📄 Cliquez pour télécharger",
+                            label="Cliquez pour télécharger",
                             data=f,
                             file_name="Rapport_Comparaison_2024_2025.docx",
                             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -839,15 +1173,14 @@ def render_page_financial(df):
                         st.success("Rapport généré avec succès !")
             
         else:
-            st.warning("⚠️ Impossible de réaliser la comparaison 2024-2025 avec les données actuelles. Vérifiez que les filtres incluent les deux années.")
+            st.warning("Impossible de réaliser la comparaison 2024-2025 avec les données actuelles. Vérifiez que les filtres incluent les deux années.")
 
 def render_page_ml(df, predictor):
     """Page du modèle Machine Learning"""
-    render_header()
-    PremiumComponents.section_header(
-        "Modèle Machine Learning",
-        "Anticipation des prix de vente par intelligence artificielle",
-        "brain"
+    render_module_hero(
+        "Modélisation Prédictive",
+        "Anticipation des cours et aide à la décision stratégique par IA",
+        "halle_poisson"
     )
     
     # On ne bloque plus si df est vide pour laisser l'accès au réentraînement
@@ -866,7 +1199,7 @@ def render_page_ml(df, predictor):
         "Global Insights",
         "Performance & Comparaison",
         "Surveillance Marché",
-        "✨ Réentraînement"
+        "Réentraînement"
     ])
     
     with tab1:
@@ -881,18 +1214,37 @@ def render_page_ml(df, predictor):
             
             with col_op1:
                 st.markdown(f"#### {LuxIcons.render('anchor', size=20)} Conseiller de Débarquement", unsafe_allow_html=True)
-                v_species = st.selectbox("Espèce à débarquer", sorted(_series(df, "espece").unique()), key="op_species")
+                from utils import get_unique_valid_species
+                valid_species = get_unique_valid_species(df)
+                v_species = st.selectbox("Espèce à débarquer", valid_species, key="op_species")
                 v_vol = st.number_input("Volume estimé (tonnes)", value=2.0)
                 
                 if st.button("Comparer les Ports", key="btn_compare"):
-                    recs = get_landing_recommendation(predictor, df, v_species, v_vol * 1000)
-                    if recs is not None:
+                    recs = suggest_optimal_ports(predictor, df, v_species, v_vol * 1000)
+                    if recs is not None and not recs.empty:
+                        # Visualization Plotly pour la rentabilité
+                        st.markdown("#### Comparaison de la Recette Nette")
+                        fig_recs = px.bar(
+                            recs.head(5), 
+                            x='port', 
+                            y='recette_estimee',
+                            text='recette_estimee',
+                            color='recette_estimee',
+                            color_continuous_scale='Blues',
+                            labels={'recette_estimee': 'Recette (DH)', 'port': 'Port'}
+                        )
+                        fig_recs.update_traces(texttemplate='%{text:,.0f} DH', textposition='outside')
+                        st.plotly_chart(apply_premium_plotly_styling(fig_recs), use_container_width=True)
+
                         # Styling table
-                        st.dataframe(recs.style.highlight_max(axis=0, subset=['potential_revenue'], color="#10B981"), width="stretch")
+                        st.markdown("#### Détails Logistiques")
+                        st.dataframe(recs.style.highlight_max(axis=0, subset=['recette_estimee'], color="#DCFCE7"), width="stretch")
+                        
                         best_port = recs.iloc[0]['port']
                         st.markdown(f"""
-                            <div style="background-color: rgba(16, 185, 129, 0.1); color: #10B981; padding: 1rem; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.2); margin-bottom: 1rem;">
-                                <b>Recommandation Elite :</b> Débarquement conseillé à <b>{best_port}</b> pour un revenu optimisé.
+                            <div style="background-color: rgba(16, 185, 129, 0.1); color: #10B981; padding: 1.5rem; border-radius: 12px; border: 1px solid #10B981; margin-top: 1rem;">
+                                <h4 style="margin:0; color: #10B981;">Recommandation Stratégique</h4>
+                                <p style="margin: 5px 0 0 0;">Débarquement conseillé à <b>{best_port}</b> pour maximiser votre marge nette.</p>
                             </div>
                         """, unsafe_allow_html=True)
                     else:
@@ -927,7 +1279,8 @@ def render_page_ml(df, predictor):
         else:
             col1, col2, col3 = st.columns(3)
             with col1:
-                species_options = sorted(_series(df, "Espèce", "espece").dropna().unique().tolist())
+                from utils import get_unique_valid_species
+                species_options = get_unique_valid_species(df)
                 species = st.selectbox("Espèce", species_options, key="ml_species", help="Choisissez l'espèce pour la prédiction")
             with col2:
                 port_options = sorted(_series(df, "Port", "port").dropna().unique().tolist())
@@ -949,11 +1302,26 @@ def render_page_ml(df, predictor):
                             predictor, df, species, port, volume_kg, prediction
                         )
                         
+                        # Alerte Repos Biologique
+                        current_month = datetime.now().month
+                        species_upper = species.upper()
+                        if species_upper in REPOS_BIOLOGIQUE_MAP and current_month in REPOS_BIOLOGIQUE_MAP[species_upper]:
+                            st.warning(f"⚠️ **Attention : {species} est actuellement en période de Repos Biologique.** Les prix prédits peuvent être sujets à une forte volatilité due à l'arrêt temporaire de la pêche.")
+                        
                         st.markdown("---")
                         
-                        # Affichage du résultat principal
-                        res_col1, res_col2 = st.columns([1, 1.5])
+                        # Image de l'espèce
+                        species_upper_img = species.upper() if isinstance(species, str) else ""
+                        from utils import get_species_image_path
                         
+                        img_path = get_species_image_path(species_upper_img)
+
+                        # Affichage du résultat principal
+                        res_col_img, res_col1, res_col2 = st.columns([0.8, 1, 1.5])
+                        
+                        with res_col_img:
+                            st.image(img_path, use_container_width=True, caption=f"{species}")
+                            
                         with res_col1:
                             PremiumComponents.metric_card(
                                 "Prix Prédit (Elite AI)",
@@ -1061,14 +1429,15 @@ def render_page_ml(df, predictor):
                 
                 # Formater les colonnes pour l'affichage
                 display_df = anomalies_df.copy()
-                st.dataframe(display_df.style.apply(lambda x: ['background-color: #FEE2E2' if v == 'High' else '' for v in x], axis=1), width="stretch")
+                # Renommer pour l'utilisateur
+                display_df.columns = ['Date', 'Espèce', 'Port', 'Prix Réel', 'Prix Attendu', 'Écart %', 'Raison / Pourquoi', 'Sévérité']
+                st.dataframe(display_df.style.apply(lambda x: ['background-color: #FEE2E2' if v == 'High' else '' for v in x], axis=1), width="stretch", hide_index=True)
                 
                 col_a1, col_a2 = st.columns(2)
                 with col_a1:
                     PremiumComponents.info_box("Les anomalies de sévérité 'High' indiquent souvent une erreur de saisie ou une condition de marché exceptionnelle (pénurie soudaine).", "warning")
             else:
                 st.success("Aucune anomalie majeure détectée dans les transactions récentes.")
-                st.balloons()
 
     with tab6:
         st.markdown(f"### {LuxIcons.render('brain', size=24)} Centre de Réentraînement de l'Intelligence Artificielle", unsafe_allow_html=True)
@@ -1079,7 +1448,7 @@ def render_page_ml(df, predictor):
         with col_up:
             st.markdown("""
             <div style="background: rgba(14, 165, 233, 0.05); padding: 1.5rem; border-radius: 12px; border: 1px dashed #0EA5E9; margin-bottom: 1.5rem;">
-                <h4 style="margin-top: 0; color: #0369A1;">📥 Importation des Données</h4>
+                <h4 style="margin-top: 0; color: #0369A1;">Importation des Données</h4>
                 <p style="font-size: 0.9rem; color: #64748B;">Chargez le fichier Excel institutionnel (format ONP) contenant les nouvelles transactions.</p>
             </div>
             """, unsafe_allow_html=True)
@@ -1092,7 +1461,7 @@ def render_page_ml(df, predictor):
             )
             
             if ml_file is not None:
-                if st.button("🚀 Lancer le Réentraînement", key="btn_retrain", width="stretch", type="primary"):
+                if st.button("Lancer le Réentraînement", key="btn_retrain", width="stretch", type="primary"):
                     with st.status("Entraînement des modèles en cours...", expanded=True) as status:
                         st.write("Extraction des données de Feuil2...")
                         result = retrain_model_from_excel(ml_file)
@@ -1105,11 +1474,7 @@ def render_page_ml(df, predictor):
                             st.write("Optimisation des hyperparamètres...")
                             time.sleep(1)
                             
-                            st.success("✅ Réentraînement Terminé avec Succès !")
-                            status.update(label="Entraînement Terminé !", state="complete", expanded=False)
-                            
-                            # Afficher les résultats
-                            st.balloons()
+                            st.success("Réentraînement Terminé avec Succès !")
                             
                             res = result['results']
                             best_name = "XGBoost" # Par défaut si non spécifié, ou extraire de result
@@ -1150,18 +1515,18 @@ def render_page_ml(df, predictor):
 
 def render_page_simulation(df):
     """Page de simulation"""
-    render_header()
-    PremiumComponents.section_header(
-        "Simulateur de Marché",
-        "Modélisation de scénarios et impacts sur les cours",
-        "simulation"
+    render_module_hero(
+        "Simulateur Stratégique",
+        "Modélisation de scénarios d'impact sur les cours halieutiques",
+        "port_agadir"
     )
     
     col1, col2 = st.columns([1, 2])
     
     with col1:
         st.markdown("### Paramètres de Simulation")
-        species_options = sorted(_series(df, "Espèce", "espece").dropna().unique().tolist())
+        from utils import get_unique_valid_species
+        species_options = get_unique_valid_species(df)
         port_options = sorted(_series(df, "Port", "port").dropna().unique().tolist())
         species_filter = st.selectbox(
             "Espèce",
@@ -1183,6 +1548,15 @@ def render_page_simulation(df):
             step=5,
             help="Hypothèse de variation du volume débarqué"
         )
+        
+        # Affichage de l'image de l'espèce sélectionnée
+        species_upper = species_filter.upper() if isinstance(species_filter, str) else ""
+        from utils import get_species_image_path
+        
+        img_path = get_species_image_path(species_upper)
+        
+        st.markdown(f"**Apparence : {species_filter}**")
+        st.image(img_path, use_container_width=True, caption=f"Guide des espèces - {species_filter}")
     
     with col2:
         st.markdown("### Impact Simulé")
@@ -1246,13 +1620,13 @@ def render_dr_special_section(df_unused):
     """, unsafe_allow_html=True)
 
     if not os.path.exists(dr_file):
-        st.error(f"⚠️ Le fichier '{dr_file}' est introuvable à la racine du projet.")
+        st.error(f"Le fichier '{dr_file}' est introuvable à la racine du projet.")
         return
 
     # Option de correction des données
     col_opt1, col_opt2 = st.columns([3, 1])
     with col_opt1:
-        st.markdown("#### ⚙️ Options d'Analyse")
+        st.markdown("#### Options d'Analyse")
     with col_opt2:
         use_corrections = st.checkbox("Appliquer corrections", value=False, 
                                      help="Applique les corrections basées sur l'analyse qualitative (Feuil3)")
@@ -1266,34 +1640,34 @@ def render_dr_special_section(df_unused):
         df_dr = load_dr_data_isolated()
 
     if df_dr is None or df_dr.empty:
-        st.error("❌ Impossible d'extraire les données du rapport DR. Vérifiez le format du fichier.")
+        st.error("Impossible d'extraire les données du rapport DR. Vérifiez le format du fichier.")
         return
 
     # Appliquer les corrections si demandé
     if use_corrections:
         with st.spinner("Application des corrections basées sur l'analyse qualitative..."):
             df_dr = apply_data_corrections(df_dr)
-            st.success("✓ Corrections appliquées (Céphalopodes +15%, Algues +47.8%, Poisson Pélagique +3%)")
+            st.success("Corrections appliquées (Céphalopodes +15%, Algues +47.8%, Poisson Pélagique +3%)")
 
     # Calcul des effets
     with st.spinner("Calcul des effets mathématiques..."):
         df_effects = calculate_price_volume_effect(df_dr)
     
     if df_effects.empty:
-        st.info("⚠️ Les années 2024 et 2025 ne sont pas détectées dans le rapport DR.")
+        st.info("Données des années 2024 et 2025 non détectées dans le rapport DR.")
         return
 
     # Export Word Button
     col_t1, col_t2 = st.columns([3, 1])
     with col_t1:
-        st.markdown("#### 📊 Décomposition Détaillée par Espèce")
+        st.markdown("#### Décomposition Détaillée par Espèce")
     with col_t2:
         try:
             output_name = "Rapport_DR_Corrige.docx" if use_corrections else "Rapport_DR_Brut.docx"
             doc_path = create_comparison_word_report(df_effects, output_path=output_name)
             with open(doc_path, "rb") as f:
                 st.download_button(
-                    label="📤 Télécharger Rapport Word",
+                    label="Télécharger Rapport Word",
                     data=f,
                     file_name=f"Rapport_Analyse_DR_2024_2025{'_Corrige' if use_corrections else ''}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -1322,7 +1696,7 @@ def render_dr_special_section(df_unused):
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Table Detailed
-    st.markdown("#### 📊 Décomposition Détaillée par Espèce")
+    st.markdown("#### Décomposition Détaillée par Espèce")
     
     # Selection des colonnes pertinentes pour l'affichage
     display_cols = ['espece', 'recette_2024_mdh', 'recette_2025_mdh', 'variation_mdh', 'effet_volume_mdh', 'effet_prix_mdh']
@@ -1345,7 +1719,7 @@ def render_dr_special_section(df_unused):
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Visualization
-    st.markdown("#### 📈 Visualisation Comparison Effets (Prix vs Volume)")
+    st.markdown("#### Visualisation Comparison Effets (Prix vs Volume)")
     
     # Melt for grouped bar chart
     df_plot = df_effects.head(10).melt(
@@ -1372,7 +1746,6 @@ def render_dr_special_section(df_unused):
 
 def render_page_diminution_ca(df_default):
     """Page d'analyse de la diminution du CA (2024 vs 2025) - DYNAMIQUE"""
-    render_header()
     PremiumComponents.section_header(
         "Analyse Comparative 2024-2025",
         "Évolution Stratégique du Chiffre d'Affaires et des Volumes",
@@ -1380,7 +1753,7 @@ def render_page_diminution_ca(df_default):
     )
 
     # ==================== DYNAMIC UPLOAD SECTION ====================
-    with st.expander("📥 Mise à jour des Données (Optionnel)", expanded=False):
+    with st.expander("Mise à jour des Données (Optionnel)", expanded=False):
         uploaded_file = st.file_uploader(
             "Importer un nouveau rapport Excel (Format ONP)", 
             type=['xlsx'],
@@ -1426,8 +1799,8 @@ def render_page_diminution_ca(df_default):
             df_reduction = pd.read_csv('ca_reduction_2024_2025.csv')
     
     if df_reduction is None or df_reduction.empty:
-        st.warning("📊 Les données nécessaires à la comparaison ne sont pas disponibles.")
-        st.info("💡 Veuillez vous assurer que le fichier de données est correct.")
+        st.warning("Les données nécessaires à la comparaison ne sont pas disponibles.")
+        st.info("Veuillez vous assurer que le fichier de données est correct.")
         return
 
     # ==================== ANALYSIS DASHBOARD ====================
@@ -1440,28 +1813,27 @@ def render_page_diminution_ca(df_default):
     diff_ca = ca_2025 - ca_2024
     diff_ca_pct = (diff_ca / ca_2024) * 100 if ca_2024 != 0 else 0
     
-    # KPIs Row
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        PremiumComponents.metric_card("CA 2024", f"{ca_2024/1000:,.1f} MDh", "finance", "", "blue")
-    with c2:
-        PremiumComponents.metric_card("CA 2025", f"{ca_2025/1000:,.1f} MDh", "finance", "", "blue")
-    with c3:
-        color = "red" if diff_ca < 0 else "green"
-        PremiumComponents.metric_card("Variation Totale", f"{diff_ca/1000:+,.1f} MDh", "target", f"{diff_ca_pct:+.1f}%", color)
-    with c4:
-        PremiumComponents.metric_card("Volume 2024", f"{vol_2024:,.0f} T", "anchor", "Ground Truth", "blue")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    
     tab1, tab2, tab2_special, tab3 = st.tabs([
-        "🏢 Analyse par Délégation (DR)", 
-        "📊 Détail par Port", 
+        "Analyse par Délégation (DR)", 
+        "Détail par Port", 
         "ANALYSE COMPARATIVE 2024-2025 (DR)",
-        "📥 Export Rapport"
+        "Export Rapport"
     ])
     
     with tab1:
+        # KPIs Row Moved Here to avoid duplication with Special DR tab
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            PremiumComponents.metric_card("CA 2024", f"{ca_2024/1000:,.1f} MDh", "finance", "", "blue")
+        with c2:
+            PremiumComponents.metric_card("CA 2025", f"{ca_2025/1000:,.1f} MDh", "finance", "", "blue")
+        with c3:
+            color = "red" if diff_ca < 0 else "green"
+            PremiumComponents.metric_card("Variation Totale", f"{diff_ca/1000:+,.1f} MDh", "target", f"{diff_ca_pct:+.1f}%", color)
+        with c4:
+            PremiumComponents.metric_card("Volume 2024", f"{vol_2024:,.0f} T", "anchor", "Ground Truth", "blue")
+
+        st.markdown("<br>", unsafe_allow_html=True)
         col_left, col_right = st.columns([1, 1])
         
         df_del = df_reduction.groupby('delegation')[['ca_2024_kdh', 'ca_2025_kdh', 'ca_diff_kdh']].sum().sort_values('ca_diff_kdh')
@@ -1556,7 +1928,7 @@ def render_page_diminution_ca(df_default):
             word_data = create_reduction_word_report(df_reduction, word_stats, plotly_figs=figs)
             
             st.download_button(
-                label="📥 Télécharger le Rapport Officiel (.docx)",
+                label="Télécharger le Rapport Officiel (.docx)",
                 data=word_data,
                 file_name=f"Rapport_Strategique_ONP_{datetime.now().strftime('%Y%m%d')}.docx",
                 mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -1568,7 +1940,6 @@ def render_page_diminution_ca(df_default):
 
 def render_page_rapport(df, filters=None):
     """Page de Rapport Institutionnel Professionnel"""
-    render_header()
     PremiumComponents.section_header(
         "Rapport Institutionnel",
         "Synthèse Stratégique & Analyse Prédictive",
@@ -1679,7 +2050,7 @@ def render_page_rapport(df, filters=None):
             create_institutional_word_report(metrics, filters=filters, df_detailed=df, output_path=word_filename)
             with open(word_filename, "rb") as file:
                 st.download_button(
-                    label="📄 Télécharger Rapport Officiel (.docx)",
+                    label="Télécharger Rapport Officiel (.docx)",
                     data=file,
                     file_name=word_filename,
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -1709,7 +2080,7 @@ def render_filters(df):
     """Affiche et gère les filtres dans la sidebar"""
     filters = {}
     if df is not None and not df.empty:
-        st.sidebar.markdown("### 🎯 Filtres Intelligents")
+        st.sidebar.markdown("### Filtres Intelligents")
         with st.sidebar.expander("Afficher les filtres", expanded=True):
             # Filtre Port
             all_ports = sorted(df['port'].unique().tolist())
@@ -1731,7 +2102,7 @@ def render_filters(df):
             
             # Message informatif si rien n'est sélectionné
             if not selected_ports and not selected_species:
-                st.sidebar.info("💡 Mode 'Global' : Toutes les données sont affichées.")
+                st.sidebar.info("Mode 'Global' : Toutes les données sont affichées.")
             
             # Filtre Date
             if 'date_vente' in df.columns:
@@ -1815,7 +2186,7 @@ def render_page_extraction_2024_2025():
             return
     
     # KPIs Globaux
-    st.markdown("### 📊 Indicateurs Clés")
+    st.markdown("### Indicateurs Clés")
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -1860,13 +2231,13 @@ def render_page_extraction_2024_2025():
     # Bouton Export Word
     col_export1, col_export2 = st.columns([3, 1])
     with col_export2:
-        if st.button("📤 Générer Rapport Word", use_container_width=True):
+        if st.button("Générer Rapport Word", use_container_width=True):
             with st.spinner("Génération du rapport Word..."):
                 try:
                     output_path = create_extraction_word_report()
                     with open(output_path, "rb") as f:
                         st.download_button(
-                            label="📥 Télécharger le Rapport",
+                            label="Télécharger le Rapport",
                             data=f,
                             file_name="Rapport_Extraction_2024_2025.docx",
                             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -1878,9 +2249,9 @@ def render_page_extraction_2024_2025():
     
     # Tabs pour différentes analyses
     tab1, tab2, tab3 = st.tabs([
-        "📊 Vue d'Ensemble",
-        "🏢 Analyse par DR",
-        "🐟 Analyse par Espèce"
+        "Vue d'Ensemble",
+        "Analyse par DR",
+        "Analyse par Espèce"
     ])
     
     with tab1:
@@ -2053,8 +2424,8 @@ def main():
     
     # Zone de diagnostic si données manquantes
     if df is None or df.empty:
-        st.sidebar.warning("⚠️ Données non trouvées")
-        if st.sidebar.button("🔄 Forcer le rechargement", key="force_reload"):
+        st.sidebar.warning("Données non trouvées")
+        if st.sidebar.button("Forcer le rechargement", key="force_reload"):
             st.cache_data.clear()
             st.session_state.main_df = load_default_data()
             st.rerun()
@@ -2063,12 +2434,12 @@ def main():
     
     # Navigation
     if 'selection' not in st.session_state:
-        st.session_state.selection = "Rapport 2024-2025" # Focus sur le rapport par défaut
+        st.session_state.selection = "Accueil" # Accueil par défaut
 
     nav_items = {
+        "Accueil": "home",
         "Rapport 2024-2025": "report",
         "Extraction 2024-2025": "database",
-        "Accueil": "home",
         "Analytics": "chart",
         "Analyse Financière": "finance",
         "Machine Learning": "brain",
@@ -2108,15 +2479,32 @@ def main():
     # Application des filtres
     df_filtered = apply_filters(df, filters)
 
-    # Rendu des pages
+    # Alertes Sensationnelles (Sidebar UX)
+    # Récupérer le premier port sélectionné pour la météo réelle
+    selected_port = filters.get('ports')[0] if filters.get('ports') else 'CASABLANCA'
+    render_external_conditions(port_name=selected_port)
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"#### {LuxIcons.render('shield', size=20, color='#0EA5E9')} Pulse Marché", unsafe_allow_html=True)
+    recent_data = df_filtered.tail(100) if not df_filtered.empty else df.tail(100)
+    market_alerts = get_market_saturation_alerts(recent_data)
+    if market_alerts:
+        for alert in market_alerts:
+            st.sidebar.warning(alert['message'])
+    else:
+        st.sidebar.success("Flux stables : aucune saturation.")
+
+    # Rendu des titres et styles globaux
+    render_header()
+    
     title_style = '<h2 style="color: #1E293B; border-bottom: 2px solid #0EA5E9; padding-bottom: 10px;">{}</h2>'
     
     if page == "Accueil":
         if df is not None and not df.empty:
              render_page_accueil(df_filtered)
         else:
-             st.warning("📊 Les données principales (onp_real_ml_data.csv) n'ont pas pu être chargées.")
-             st.info("💡 Veuillez vous assurer que le fichier existe à la racine du projet ou utilisez le module 'Machine Learning' pour importer un fichier Excel.")
+             st.warning("Les données principales (onp_real_ml_data.csv) n'ont pas pu être chargées.")
+             st.info("Veuillez vous assurer que le fichier existe à la racine du projet ou utilisez le module 'Machine Learning' pour importer un fichier Excel.")
              if st.button("Tenter un rechargement"):
                  st.cache_data.clear()
                  st.rerun()
@@ -2131,7 +2519,7 @@ def main():
             else:
                 st.info("Module Analytics en maintenance.")
         else:
-            st.warning("⚠️ Les données pour l'analyse ne sont pas disponibles. Veuillez charger un fichier.")
+            st.warning("Les données pour l'analyse ne sont pas disponibles. Veuillez charger un fichier.")
     
     elif page == "Analyse Financière":
         if df_filtered is not None and not df_filtered.empty:
@@ -2142,7 +2530,7 @@ def main():
             else:
                  st.info("Module Finance en maintenance.")
         else:
-            st.warning("⚠️ Les données financières ne sont pas disponibles.")
+            st.warning("Les données financières ne sont pas disponibles.")
     
     elif page == "Machine Learning":
         if df is not None and not df.empty:
@@ -2157,7 +2545,7 @@ def main():
             else:
                  st.info("Module ML en maintenance.")
         else:
-            st.warning("⚠️ Les données pour le Machine Learning ne sont pas disponibles.")
+            st.warning("Les données pour le Machine Learning ne sont pas disponibles.")
     
     elif page == "Simulateur":
         if df is not None and not df.empty:
@@ -2166,7 +2554,7 @@ def main():
             else:
                  st.info("Module Simulateur en maintenance.")
         else:
-            st.warning("⚠️ Les données pour la simulation ne sont pas disponibles.")
+            st.warning("Les données pour la simulation ne sont pas disponibles.")
         
     elif page == "Rapport (V1)":
         if 'render_page_rapport' in globals():

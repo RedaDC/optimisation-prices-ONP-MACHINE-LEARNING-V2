@@ -1,7 +1,6 @@
 """
 Assets ONP - Contenu et images inspirés de onp.ma
 ================================================
-
 Textes et URLs d'images pour l'application, alignés avec
 l'Office National des Pêches (ONP) - Maroc.
 Site officiel : https://onp.ma/
@@ -14,39 +13,63 @@ ONP_WEBSITE_URL = "https://onp.ma/"
 
 # Textes inspirés de la communication ONP
 ONP_EDITO = (
-    "Au service du développement de la filière pêche depuis 1969, "
-    "l'Office National des Pêches (ONP) est un acteur majeur du secteur au Maroc. "
-    "Cette application accompagne les professionnels avec des analyses de prix, "
-    "des statistiques de commercialisation et des outils d'aide à la décision."
+    "Bras opérationnel de la Stratégie Halieutis, l'Office National des Pêches (ONP) "
+    "assure la modernisation de la filière et la valorisation optimale de la ressource. "
+    "Notre intelligence prédictive accompagne les acteurs du secteur dans la maîtrise "
+    "des cours et l'optimisation des flux de commercialisation nationale."
 )
 
-ONP_TAGLINE = "Au service du développement de la filière pêche depuis 1969"
+ONP_TAGLINE = "L'Excellence Halieutique au Cœur de l'Économie Bleue"
 
 ONP_STRATEGY = "Bras opérationnel de la Stratégie Halieutis"
 
 # Images réelles et professionnelles du secteur de la pêche au Maroc
-# Sources : Wikimedia Commons (Libre de droits) et Unsplash
-# Note : Pour une utilisation hors-ligne, placez les images dans assets/images/ avec les noms correspondants
 IMAGES_PECHE_MAROC = {
-    # Images with higher reliability and direct access
-    "hero": "https://images.unsplash.com/photo-1534067783941-51c9c23ecefd?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
-    "marche_poisson": "https://images.unsplash.com/photo-1544526226-d45680d0739c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80", 
-    "port_essaouira": "https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-    "sardines_poisson": "https://plus.unsplash.com/premium_photo-1667803697960-96f9a061c556?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-    "pecheur_bateau": "https://images.unsplash.com/photo-1596711679095-2c813f433990?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-    "halle_poisson": "https://images.unsplash.com/photo-1563564993683-1c3906a5b23d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-    "port_agadir": "https://images.unsplash.com/photo-1628109886470-87a1c7db135a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80",
-    "bateaux_bleus": "https://images.unsplash.com/photo-1535567554900-58957bf7794e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80"
+    "hero": "https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?auto=format&fit=crop&w=1920&q=80",
+    "marche_poisson": "https://images.unsplash.com/photo-1544526226-d45680d0739c?auto=format&fit=crop&w=1000&q=80", 
+    "port_essaouira": "https://images.unsplash.com/photo-1534067783941-51c9c23ecefd?auto=format&fit=crop&w=1000&q=80",
+    "sardines_poisson": "https://plus.unsplash.com/premium_photo-1667803697960-96f9a061c556?auto=format&fit=crop&w=1000&q=80",
+    "pecheur_bateau": "https://images.unsplash.com/photo-1596711679095-2c813f433990?auto=format&fit=crop&w=1000&q=80",
+    "halle_poisson": "https://images.unsplash.com/photo-1563564993683-1c3906a5b23d?auto=format&fit=crop&w=1000&q=80",
+    "port_agadir": "https://images.unsplash.com/photo-1628109886470-87a1c7db135a?auto=format&fit=crop&w=1000&q=80",
+    "bateaux_bleus": "https://images.unsplash.com/photo-1535567554900-58957bf7794e?auto=format&fit=crop&w=1000&q=80",
+    "real_port": "https://images.unsplash.com/photo-1590508730268-de9f018e6922?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+    "industrial_port": "https://images.unsplash.com/photo-1510134446219-478641a0279c?q=80&w=2070&auto=format&fit=crop",
+    "calamar": "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=800&q=80",
+    "bar": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Dicentrarchus_labrax_177025102.jpg",
+    "coquillages": "https://images.unsplash.com/photo-1544526226-d45680d0739c?auto=format&fit=crop&w=800&q=80",
+    "moule": "https://images.unsplash.com/photo-1541603513727-802213760caf?auto=format&fit=crop&w=800&q=80",
+    "huitres": "https://images.unsplash.com/photo-1541602927702-6019a7795325?auto=format&fit=crop&w=800&q=80",
+    "crevette_rose": "https://images.unsplash.com/photo-1559737558-2f1906a88137?auto=format&fit=crop&w=800&q=80",
+    "crevette_grise": "https://images.unsplash.com/photo-1524312952044-8df645934563?auto=format&fit=crop&w=800&q=80",
+    "mulet_dore": "https://upload.wikimedia.org/wikipedia/commons/e/ea/Liza_aurata.jpg",
+    "sole": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Solea_senegalensis.jpg/800px-Solea_senegalensis.jpg",
+    "requin_ha": "https://upload.wikimedia.org/wikipedia/commons/e/e6/Galeorhinus_galeus.jpg",
+    "sparaillon_commun": "https://upload.wikimedia.org/wikipedia/commons/b/b5/Diplodus_annularis_%28Linnaeus%2C_1758%29.jpg",
+    "maquereau": "https://upload.wikimedia.org/wikipedia/commons/8/84/Cornish_mackerel_1.jpg",
+    "anchois": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Boquerones_%28Engraulis_encrasicolus%29%2C_Set%C3%BAbal%2C_Portugal%2C_2020-08-01%2C_DD_16.jpg",
+    "dorade": "https://upload.wikimedia.org/wikipedia/commons/9/95/Sparus_aurata_Sardegna.jpg",
+    "pageot": "https://upload.wikimedia.org/wikipedia/commons/4/45/Pagellus_erythrinus_France.jpg",
+    "bogue": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Boops_boops_Karpathos_01.JPG",
+    "rascasse": "https://upload.wikimedia.org/wikipedia/commons/7/7f/Scorpaena_scrofa_02.JPG",
+    "sabre": "https://upload.wikimedia.org/wikipedia/commons/8/82/Trichiurus_lepturus_%28RFEIMG-0382%29.jpg",
+    "homard": "https://upload.wikimedia.org/wikipedia/commons/1/18/KreeftbijDenOsse.jpg",
+    "pagre": "https://upload.wikimedia.org/wikipedia/commons/9/94/Pargo_com%C3%BAn_%28Pagrus_pagrus%29%2C_Parque_natural_de_la_Arr%C3%A1bida%2C_Portugal%2C_2021-09-09%2C_DD_36.jpg",
+    "saint_pierre": "https://upload.wikimedia.org/wikipedia/commons/a/a6/Zeus.faber.jpg",
+    "poulpe": "https://upload.wikimedia.org/wikipedia/commons/9/9f/Octopus_vulgaris_2.jpg",
+    "baudroie": "https://upload.wikimedia.org/wikipedia/commons/3/3d/Lophius_piscatorius_2.jpg",
+    "hero_user": ""
 }
 
 def get_image_path(key):
-    """
-    Retourne le chemin de l'image (local si présent, sinon URL).
-    """
-    local_filename = f"{key}.jpg"
-    local_path = os.path.join("assets", "images", local_filename)
-    if os.path.exists(local_path):
-        return local_path
+    """Retourne le chemin de l'image (local si présent, sinon URL)."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    for ext in ['.jpg', '.png', '.jpeg']:
+        local_filename = f"{key}{ext}"
+        local_path = os.path.join(base_dir, "assets", "images", local_filename)
+        if os.path.exists(local_path):
+            return local_path
+            
     return IMAGES_PECHE_MAROC.get(key, "")
 
 # Légendes professionnelles et contextuelles
@@ -59,4 +82,9 @@ IMAGE_CAPTIONS = {
     "halle_poisson": "Logistique portuaire : L'industrie vers l'avenir 2026",
     "port_agadir": "Agadir : Premier pôle d'exportation halieutique en Afrique",
     "bateaux_bleus": "Patrimoine maritime : Les reflets d'une économie bleue durable",
+    "halle_onp_1": "Halle aux poissons moderne : Digitalisation des flux",
+    "halle_onp_2": "Vente à la crie : Transparence et efficacité",
+    "port_onp_1": "Infrastructure portuaire : Ancrage national stratégique",
+    "port_agadir_new": "Port d'Agadir : Hub logistique et halieutique majeur",
+    "showcase_secondary": "Modernisation des structures halieutiques",
 }

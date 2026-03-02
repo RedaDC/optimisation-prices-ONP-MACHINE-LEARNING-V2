@@ -57,95 +57,13 @@ def inject_css_styles():
             background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%) !important;
         }
         
-        /* ============= ANIMATIONS ============= */
-        @keyframes fadeInUp {
-            from { 
-                opacity: 0; 
-                transform: translateY(20px); 
-            }
-            to { 
-                opacity: 1; 
-                transform: translateY(0); 
-            }
-        }
-        
-        
-        @keyframes slideInLeft {
-            from { 
-                opacity: 0; 
-                transform: translateX(-30px); 
-            }
-            to { 
-                opacity: 1; 
-                transform: translateX(0); 
-            }
-        }
+        /* ============= ANIMATIONS REMOVED FOR INSTITUTIONAL STYLE ============= */
         
         /* ============= UTILS CLASSES ============= */
-        .fade-in-up { animation: fadeInUp 0.8s ease-out; }
+        .fade-in-up { opacity: 1; }
         .fade-in-down { opacity: 1; }
         .float-element { transform: none; }
-        
-        @keyframes glow {
-            0%, 100% { 
-                box-shadow: 0 0 20px rgba(14, 165, 233, 0.3); 
-            }
-            50% { 
-                box-shadow: 0 0 30px rgba(14, 165, 233, 0.5); 
-            }
-        }
-        
-        @keyframes shimmer {
-            0% { background-position: -1000px 0; }
-            100% { background-position: 1000px 0; }
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 15px rgba(14, 165, 233, 0.2); }
-            50% { box-shadow: 0 0 25px rgba(14, 165, 233, 0.4); }
-        }
-
-        @keyframes text-glow {
-            0%, 100% { text-shadow: 0 0 10px rgba(14, 165, 233, 0.2); }
-            50% { text-shadow: 0 0 20px rgba(14, 165, 233, 0.5); }
-        }
-
-        @keyframes drift {
-            0% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-10px) rotate(1deg); }
-            100% { transform: translateY(0px) rotate(0deg); }
-        }
-
-        @keyframes border-glow {
-            0%, 100% { border-color: rgba(14, 165, 233, 0.2); }
-            50% { border-color: rgba(14, 165, 233, 0.6); box-shadow: 0 0 15px rgba(14, 165, 233, 0.2); }
-        }
-
-        @keyframes kenburns {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.1); }
-        }
-
-        @keyframes fadeInDown {
-            from { 
-                opacity: 0; 
-                transform: translateY(-20px); 
-            }
-            to { 
-                opacity: 1; 
-                transform: translateY(0); 
-            }
-        }
-
-        .glow-pulse-border {
-            animation: border-glow 2s infinite ease-in-out;
-            border-width: 2px !important;
-        }
+        .glow-pulse-border { border-width: 1px !important; border-color: rgba(14, 165, 233, 0.2) !important; }
         
         /* ============= COMPOSANTS GLOBAUX ============= */
         .stApp {
@@ -154,11 +72,8 @@ def inject_css_styles():
         
         /* ============= SIDEBAR GLASSMORPHISM ============= */
         section[data-testid="stSidebar"] {
-            background: rgba(255, 255, 255, 0.5) !important;
-            backdrop-filter: blur(30px) !important;
-            -webkit-backdrop-filter: blur(30px) !important;
+            background: rgba(255, 255, 255, 0.95) !important;
             border-right: 1px solid rgba(14, 165, 233, 0.1) !important;
-            animation: slideInLeft 0.6s ease-out;
         }
         
         section[data-testid="stSidebar"] .stMarkdown, 
@@ -182,11 +97,17 @@ def inject_css_styles():
             letter-spacing: -0.04em !important;
             margin-bottom: 0.75rem !important;
             line-height: 1.1 !important;
-            background: linear-gradient(135deg, #0F172A 0%, #0EA5E9 100%);
+            background: linear-gradient(135deg, #0F172A 0%, #0369A1 100%);
             -webkit-background-clip: text !important;
             -webkit-text-fill-color: transparent !important;
             background-clip: text !important;
-            animation: fadeInDown 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        /* OVERRIDE FOR HERO SECTION */
+        .hero-title {
+            -webkit-text-fill-color: initial !important;
+            background: none !important;
+            color: inherit !important;
         }
         
         h2 {
@@ -309,16 +230,14 @@ def inject_css_styles():
         }
         
         .metric-card:hover {
-            transform: translateY(-10px) scale(1.02) !important;
-            box-shadow: 0 30px 60px -12px rgba(15, 23, 42, 0.15) !important;
-            background: rgba(255, 255, 255, 0.85) !important;
-            border-color: rgba(14, 165, 233, 0.5) !important;
-            animation: pulse-glow 3s infinite ease-in-out;
+            box-shadow: 0 30px 60px -12px rgba(15, 23, 42, 0.12) !important;
+            background: rgba(255, 255, 255, 0.9) !important;
+            border-color: rgba(14, 165, 233, 0.3) !important;
         }
 
         /* ============= CREATIVE HOME COMPONENTS ============= */
         .glow-text {
-            animation: text-glow 4s infinite ease-in-out;
+            color: white !important;
         }
 
         .badge-premium {
@@ -334,7 +253,7 @@ def inject_css_styles():
         }
 
         .market-pulse-node {
-            animation: pulse-glow 2s infinite ease-in-out;
+            opacity: 1;
         }
 
         .portfolio-card {
@@ -361,15 +280,6 @@ def inject_css_styles():
         }
         
         /* ============= LOADING STATE ÉLÉGANT ============= */
-        .stSpinner > div {
-            border-top: 4px solid rgba(14, 165, 233, 0.15) !important;
-            border-right: 4px solid #0EA5E9 !important;
-            border-bottom: 4px solid rgba(14, 165, 233, 0.15) !important;
-            border-left: 4px solid transparent !important;
-            border-radius: 50% !important;
-            animation: spin 0.9s linear infinite !important;
-        }
-        
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -533,17 +443,8 @@ def inject_css_styles():
             transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease !important;
         }
         
-        .cinematic-container:hover .cinematic-image {
-            transform: scale(1.05) !important;
-        }
-        
-        .image-overlay-premium {
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.8) 100%) !important;
-            transition: all 0.5s ease !important;
-        }
-        
         .cinematic-container:hover .image-overlay-premium {
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.1) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
         }
 
         /* Espacement optimisé */
@@ -651,10 +552,10 @@ class LuxIcons:
         return f'<span style="display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; {extra_style}">{LuxIcons.get(name, size, color)}</span>'
 
 # ==================== MODÈLES PLOTLY PERSONNALISÉS ====================
-# Palette harmonieuse ONP (bleu marin, vert, ambre, bleu clair)
+# Palette Halieutis Excellence (Deep Navy, Radiant Emerald, Amber Gold, Vivid Azure)
 ONP_PLOTLY_COLORWAY = [
-    "#0369A1", "#0EA5E9", "#10B981", "#F59E0B", "#38BDF8", "#059669",
-    "#6366F1", "#EC4899"
+    "#0B1120", "#10B981", "#FFD700", "#0EA5E9", "#6366F1", "#F43F5E",
+    "#8B5CF6", "#EC4899"
 ]
 
 def create_premium_template() -> Dict[str, Any]:
@@ -713,41 +614,61 @@ def apply_premium_plotly_styling(fig: go.Figure) -> go.Figure:
         xaxis=dict(
             showgrid=True,
             gridwidth=1,
-            gridcolor="rgba(226, 232, 240, 0.6)",
+            gridcolor="rgba(226, 232, 240, 0.4)",
             zeroline=False,
             showline=True,
-            linewidth=2,
+            linewidth=1.5,
             linecolor="#E2E8F0",
-            tickfont=dict(size=12, color="#64748B"),
+            tickfont=dict(size=11, color="#64748B", family="Outfit"),
         ),
         yaxis=dict(
             showgrid=True,
             gridwidth=1,
-            gridcolor="rgba(226, 232, 240, 0.6)",
+            gridcolor="rgba(226, 232, 240, 0.4)",
             zeroline=False,
             showline=True,
-            linewidth=2,
+            linewidth=1.5,
             linecolor="#E2E8F0",
-            tickfont=dict(size=12, color="#64748B"),
+            tickfont=dict(size=11, color="#64748B", family="Outfit"),
         ),
         coloraxis_colorbar=dict(
-            thickness=15,
-            len=0.5,
+            thickness=12,
+            len=0.7,
             x=1.02,
-            tickfont=dict(size=11, color="#64748B"),
+            tickfont=dict(size=10, color="#64748B", family="Outfit"),
             borderwidth=0,
+            title=dict(font=dict(size=12, color="#0F172A", family="Outfit"))
         ),
+        # Effet "Elite" sur les polices globales
+        title=dict(font=dict(size=18, family="Outfit", color="#0F172A")),
     )
     
-    # Couleurs harmonieuses et hover effects
+    # Couleurs harmonieuses et hover effects "Halieutis"
     colors = ONP_PLOTLY_COLORWAY
     for i, trace in enumerate(fig.data):
         c = colors[i % len(colors)]
         try:
-            if hasattr(trace, "marker") and trace.marker is not None:
+            # Bar chart specific
+            if isinstance(trace, go.Bar):
                 trace.marker.color = c
-            if hasattr(trace, "line") and trace.line is not None:
-                trace.line.color = c
+                trace.marker.line = dict(width=0)
+                trace.hoverlabel = dict(font_size=14, font_family="Outfit")
+            # Scatter/Line specific
+            elif isinstance(trace, (go.Scatter, go.Line)):
+                if trace.mode and 'lines' in trace.mode:
+                    trace.line.color = c
+                    trace.line.width = 3
+                if trace.mode and 'markers' in trace.mode:
+                    trace.marker.color = c
+                    trace.marker.size = 8
+            
+            # Application globale du hover stylisé
+            trace.hoverlabel = dict(
+                bgcolor="#0F172A",
+                font_size=13,
+                font_family="Outfit",
+                font_color="white"
+            )
         except Exception:
             pass
     

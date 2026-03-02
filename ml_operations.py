@@ -91,22 +91,38 @@ def get_auction_starting_price(predictor, df_ref, species, port, volume_kg):
 
 def detect_market_anomalies(df_recent, predictor):
     """
-    Identifie les transactions suspectes ou les erreurs de saisie.
+    Identifie les transactions suspectes ou les erreurs de saisie avec explications.
     """
     anomalies = []
     
-    # Échantillon pour le test (dernières transactions)
-    test_df = df_recent.tail(20).copy()
+    # Échantillon pour le test (dernières transactions pour réactivité)
+    # Dans un environnement réel, on pourrait scanner tout le batch
+    test_df = df_recent.tail(50).copy()
     
     for idx, row in test_df.iterrows():
         try:
-            # On prédit ce que devrait être le prix
+            # 1. Analyse basée sur le modèle ML (Écart de prédiction)
             pred = predictor.predict_single(df_recent, row['espece'], row['port'], row['volume_kg'])
             actual = row['prix_unitaire_dh']
+            deviation = (actual - pred) / pred
             
-            # Si l'écart est supérieur à 40% -> Anomalie
-            deviation = abs(actual - pred) / pred
-            if deviation > 0.4:
+            # 2. Analyse statistique locale (Z-Score simplifié sur l'espèce)
+            mask = df_recent['espece'] == row['espece']
+            avg_price = df_recent[mask]['prix_unitaire_dh'].mean()
+            std_price = df_recent[mask]['prix_unitaire_dh'].std()
+            z_score = (actual - avg_price) / std_price if std_price > 0 else 0
+            
+            reason = ""
+            if abs(deviation) > 0.4:
+                if deviation > 0:
+                    reason = f"Prix {abs(deviation)*100:.1f}% supérieur à la prédiction IA."
+                else:
+                    reason = f"Prix {abs(deviation)*100:.1f}% inférieur à la prédiction IA."
+            
+            if abs(z_score) > 3:
+                reason += f" Écart statistique critique (Z-score: {z_score:.1f})."
+            
+            if reason:
                 anomalies.append({
                     "date": row['date_vente'],
                     "espece": row['espece'],
@@ -114,7 +130,8 @@ def detect_market_anomalies(df_recent, predictor):
                     "actual_price": actual,
                     "expected_price": round(pred, 2),
                     "deviation_pct": round(deviation * 100, 1),
-                    "severity": "High" if deviation > 0.6 else "Medium"
+                    "reason": reason,
+                    "severity": "High" if abs(deviation) > 0.6 or abs(z_score) > 4 else "Medium"
                 })
         except:
             continue

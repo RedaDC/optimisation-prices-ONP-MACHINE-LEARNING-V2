@@ -22,6 +22,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -79,6 +80,7 @@ class ONPPricePredictor:
         # Sélection des features pour le modèle
         feature_cols = [
             'volume_kg',
+            'log_volume',
             'port_encoded',
             'espece_encoded',
             'categorie_encoded',
@@ -86,8 +88,16 @@ class ONPPricePredictor:
             'mois',
             'jour_semaine',
             'saison_encoded',
+            'is_repos_biologique',
             'volume_moyen_espece',
-            'prix_moyen_port'
+            'log_volume_moyen',
+            'ratio_volume',
+            'prix_moyen_espece',
+            'prix_moyen_port',
+            'prix_moyen_region',
+            'prix_carburant',
+            'force_vent',
+            'is_tempete'
         ]
         
         # Vérifier que toutes les colonnes existent
@@ -107,34 +117,37 @@ class ONPPricePredictor:
         )
         
         # Normalisation
+        # On garde une version NON-SCALED pour les arbres (Random Forest / HGBoost)
+        self.scaler = StandardScaler()
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
         
-        # Re-convertir en DataFrame pour garder les noms de colonnes (utile pour XGBoost/Interpretability)
-        X_train_final = pd.DataFrame(X_train_scaled, columns=self.feature_names)
-        X_test_final = pd.DataFrame(X_test_scaled, columns=self.feature_names)
+        # Re-convertir en DataFrame
+        X_train_scaled_df = pd.DataFrame(X_train_scaled, columns=self.feature_names)
+        X_test_scaled_df = pd.DataFrame(X_test_scaled, columns=self.feature_names)
         
         print(f"   DONE: Donnees divisees: {len(X_train)} train, {len(X_test)} test")
         
-        return X_train_final, X_test_final, y_train, y_test
+        return X_train, X_test, y_train, y_test, X_train_scaled_df, X_test_scaled_df
     
-    def train_models(self, X_train, X_test, y_train, y_test):
+    def train_models(self, X_train, X_test, y_train, y_test, X_train_scaled=None, X_test_scaled=None):
         """
         Entraîne les trois modèles ML et compare leurs performances.
         
         Args:
-            X_train, X_test, y_train, y_test: Données d'entraînement et de test
+            X_train, X_test, y_train, y_test: Données d'entraînement et de test (non-scalées)
+            X_train_scaled, X_test_scaled: Données d'entraînement et de test (scalées)
             
         Returns:
             dict: Résultats de tous les modèles
         """
         print("\nEntrainement des modeles ML...")
         
-        # Modèle 1: Régression Linéaire (Baseline)
+        # Modèle 1: Régression Linéaire (Baseline) - A BESOIN de scaling
         print("\n1. Regression Lineaire...")
         lr_model = LinearRegression()
-        lr_model.fit(X_train, y_train)
-        lr_pred = lr_model.predict(X_test)
+        lr_model.fit(X_train_scaled if X_train_scaled is not None else X_train, y_train)
+        lr_pred = lr_model.predict(X_test_scaled if X_test_scaled is not None else X_test)
         
         lr_rmse = np.sqrt(mean_squared_error(y_test, lr_pred))
         lr_mae = mean_absolute_error(y_test, lr_pred)
@@ -152,7 +165,7 @@ class ONPPricePredictor:
         print(f"   DONE: MAE: {lr_mae:.2f} DH/kg")
         print(f"   DONE: R2: {lr_r2:.4f}")
         
-        # Modèle 2: Random Forest
+        # Modèle 2: Random Forest - N'A PAS BESOIN de scaling
         print("\n2. Random Forest Regressor...")
         rf_model = RandomForestRegressor(
             n_estimators=100,
@@ -162,8 +175,8 @@ class ONPPricePredictor:
             random_state=42,
             n_jobs=-1
         )
-        rf_model.fit(X_train, y_train)
-        rf_pred = rf_model.predict(X_test)
+        rf_model.fit(X_train, y_train) # Utilise les données non-scalées
+        rf_pred = rf_model.predict(X_test) # Utilise les données non-scalées
         
         rf_rmse = np.sqrt(mean_squared_error(y_test, rf_pred))
         rf_mae = mean_absolute_error(y_test, rf_pred)
@@ -182,22 +195,35 @@ class ONPPricePredictor:
         print(f"   DONE: MAE: {rf_mae:.2f} DH/kg")
         print(f"   DONE: R2: {rf_r2:.4f}")
         
-        # Modèle 3: HistGradientBoosting (Excellent pour la monotonie)
+        # Modèle 3: HistGradientBoosting (Excellent pour la monotonie) - N'A PAS BESOIN de scaling
         print("\n3. HistGradientBoosting Regressor (Elasticité Garantie)...")
         mono_constraints = [0] * len(self.feature_names)
-        if 'volume_kg' in self.feature_names:
-            v_idx = self.feature_names.index('volume_kg')
-            mono_constraints[v_idx] = -1 # Impact négatif
+        for i, name in enumerate(self.feature_names):
+            if name in ['volume_kg', 'log_volume', 'ratio_volume']:
+                mono_constraints[i] = -1 # Impact negatif strict
+            elif name == 'prix_moyen_espece':
+                mono_constraints[i] = 1 # Impact positif strict (plus l'espece est chere, plus le prix predictif monte)
             
         hgb_model = HistGradientBoostingRegressor(
-            max_iter=200,
-            max_depth=10,
+            max_iter=500,     # Augmenter les itérations
+            max_depth=15,
+            max_leaf_nodes=128,
+            min_samples_leaf=3,
             learning_rate=0.1,
             monotonic_cst=mono_constraints,
             random_state=42
         )
-        hgb_model.fit(X_train, y_train)
-        hgb_pred = hgb_model.predict(X_test)
+        
+        # Poids de l'échantillon pour forcer l'importance du prix de l'espèce
+        # Plus il y a de variance dans les prix réels, plus on veut que le modèle apprenne cette feature.
+        sample_weights = np.ones(len(y_train))
+        if 'prix_moyen_espece' in X_train.columns:
+            # On donne plus de poids aux observations où le prix moyen espèce est élevé
+            # pour mieux distinguer les espèces nobles des espèces de masse.
+            sample_weights = 1.0 + (X_train['prix_moyen_espece'] - X_train['prix_moyen_espece'].min()) / (X_train['prix_moyen_espece'].max() - X_train['prix_moyen_espece'].min() + 1)
+            
+        hgb_model.fit(X_train, y_train, sample_weight=sample_weights) # Utilise les données non-scalées
+        hgb_pred = hgb_model.predict(X_test) # Utilise les données non-scalées
         
         hgb_rmse = np.sqrt(mean_squared_error(y_test, hgb_pred))
         hgb_mae = mean_absolute_error(y_test, hgb_pred)
@@ -243,7 +269,7 @@ class ONPPricePredictor:
         Returns:
             pd.DataFrame: Features et leur importance
         """
-        if self.best_model_name in ['Random Forest', 'XGBoost']:
+        if self.best_model_name in ['Random Forest', 'HGBoost'] and 'feature_importance' in self.results.get(self.best_model_name, {}):
             importance = self.results[self.best_model_name]['feature_importance']
             
             df_importance = pd.DataFrame({
@@ -253,7 +279,7 @@ class ONPPricePredictor:
             
             return df_importance
         else:
-            return pd.DataFrame()
+            return pd.DataFrame(columns=['feature', 'importance'])
     
     def save_model(self, filepath='models/best_model.pkl'):
         """
@@ -303,25 +329,77 @@ class ONPPricePredictor:
     def predict(self, X):
         """
         Fait une prédiction avec le meilleur modèle.
-        
-        Args:
-            X (array-like): Features d'entrée
-            
-        Returns:
-            array: Prédictions de prix
+        S'assure que tous les prix prédits sont positifs.
         """
         if self.best_model is None:
             raise ValueError("Aucun modèle entraîné. Utilisez train_models() d'abord.")
         
-        X_scaled = self.scaler.transform(X)
-        return self.best_model.predict(X_scaled)
+        # Appliquer le scaling uniquement si le modèle en a besoin (e.g., Linear Regression)
+        if isinstance(self.best_model, LinearRegression):
+            X_processed = self.scaler.transform(X)
+        else: # Pour les modèles basés sur les arbres, pas de scaling
+            X_processed = X
+            
+        preds = self.best_model.predict(X_processed)
+        
+        # Sécurité: Aucun prix ne peut être inférieur à 1 DH/kg
+        return np.maximum(preds, 1.0)
 
-    def predict_single(self, df_ref, species, port, volume_kg):
+    def update_model(self, new_data_df):
+        """
+        Implémente un mécanisme d'apprentissage en ligne (Online Learning).
+        Réajuste le modèle avec de nouvelles données fraîches.
+        """
+        print("\nUPDATE: Online Learning en cours...")
+        if self.best_model is None:
+            print("ERROR: Aucun modele a mettre a jour.")
+            return False
+            
+        # Préparer les nouvelles données
+        df_clean = clean_data(new_data_df)
+        df_feat = create_features(df_clean)
+        df_encoded, _ = encode_categorical(df_feat)
+        
+        # Aligner avec les features existantes
+        for col in self.feature_names:
+            if col not in df_encoded.columns:
+                df_encoded[col] = 0
+                
+        X_new = df_encoded[self.feature_names].fillna(0)
+        y_new = df_encoded['prix_unitaire_dh']
+        
+        # Appliquer le scaling si le modèle en a besoin
+        if isinstance(self.best_model, LinearRegression):
+            X_new_processed = self.scaler.transform(X_new)
+            X_new_final = pd.DataFrame(X_new_processed, columns=self.feature_names)
+        else: # Pour les modèles basés sur les arbres, pas de scaling
+            X_new_final = X_new
+            
+        # Mise à jour incrémentale selon le modèle
+        if self.best_model_name == 'Linear Regression':
+            # La régression linéaire classique ne supporte pas le fit partiel, on réentraîne
+            self.best_model.fit(X_new_final, y_new)
+        else:
+            # Pour les modèles basés sur les arbres, on utilise le warm start ou un réentraînement rapide
+            # Note: HistGradientBoosting ne supporte pas encore partial_fit, on réentraîne sur le nouveau buffer
+            self.best_model.fit(X_new_final, y_new)
+            
+        print(f"DONE: Modele {self.best_model_name} mis a jour avec {len(new_data_df)} lignes.")
+        return True
+
+    def predict_single(self, df_ref, species, port, volume_kg, month_override=None):
         """
         Prédit le prix pour une combinaison espèce / port / volume.
+        Utilise la date système actuelle par défaut, ou month_override si fourni.
         """
         if self.best_model is None:
             raise ValueError("Aucun modèle entraîné.")
+            
+        # 0. Date actuelle ou forcée
+        now = datetime.now()
+        current_month = month_override if month_override is not None else now.month
+        current_year = now.year
+        current_day_of_week = now.weekday()
             
         # 1. Obtenir les stats de référence pour cette espèce/port
         sub = df_ref[(df_ref["espece"] == species) & (df_ref["port"] == port)]
@@ -332,28 +410,37 @@ class ONPPricePredictor:
             
         ref_row = sub.iloc[0].to_dict()
         
-        # 2. Préparer la ligne de prédiction
-        # On garde les stats de référence (moyennes historiques) mais on change le volume actuel
+        # 2. Préparer la ligne de prédiction avec la date 
         row = {
             "espece": species,
             "port": port,
             "volume_kg": volume_kg,
-            "mois": ref_row.get("mois", 6),
-            "jour_semaine": ref_row.get("jour_semaine", 2),
-            "annee": ref_row.get("annee", 2025),
+            "mois": current_month,
+            "jour_semaine": current_day_of_week,
+            "annee": current_year,
             "categorie": ref_row.get("categorie", "AUTRE"),
             "calibre": ref_row.get("calibre", "Moyen")
         }
         
         df_one = pd.DataFrame([row])
         
-        # 3. Features temporelles et saison (on le fait avant pour ne pas ecraser les moyennes)
+        # 3. Features temporelles et saison
         df_one = create_features(df_one)
         
-        # 4. Injecter les moyennes historiques du df_ref (APRES create_features pour ne pas etre ecrase)
-        df_one["volume_moyen_espece"] = df_ref[df_ref["espece"] == species]["volume_kg"].mean() if "volume_kg" in df_ref.columns else volume_kg
-        df_one["prix_moyen_port"] = df_ref[df_ref["port"] == port]["prix_unitaire_dh"].mean() if "prix_unitaire_dh" in df_ref.columns else 20.0
-        
+        # 4. Injecter les moyennes historiques du df_ref (seulement si non déjà calculées par create_features)
+        if "volume_moyen_espece" not in df_one.columns or pd.isna(df_one["volume_moyen_espece"].iloc[0]):
+            df_one["volume_moyen_espece"] = df_ref[df_ref["espece"] == species]["volume_kg"].mean() if "volume_kg" in df_ref.columns else volume_kg
+            
+        if "prix_moyen_port" not in df_one.columns or pd.isna(df_one["prix_moyen_port"].iloc[0]):
+            df_one["prix_moyen_port"] = df_ref[df_ref["port"] == port]["prix_unitaire_dh"].mean() if "prix_unitaire_dh" in df_ref.columns else 20.0
+            
+        if "prix_moyen_espece" not in df_one.columns or pd.isna(df_one["prix_moyen_espece"].iloc[0]):
+            df_one["prix_moyen_espece"] = df_ref[df_ref["espece"] == species]["prix_unitaire_dh"].mean() if "prix_unitaire_dh" in df_ref.columns else 20.0
+            
+        # NOUVEAU: Recalculer les features dépendantes des moyennes pour éviter le biais du single-row
+        df_one["log_volume_moyen"] = np.log1p(df_one["volume_moyen_espece"])
+        df_one["ratio_volume"] = df_one["volume_kg"] / (df_one["volume_moyen_espece"] + 1)
+            
         # 5. Encodage
         for col, le in self.encoders.items():
             if f"{col}_encoded" in self.feature_names:
@@ -361,15 +448,40 @@ class ONPPricePredictor:
                 val = str(df_one[col].iloc[0])
                 df_one[enc_col] = le.transform([val])[0] if val in le.classes_ else 0
         
-        # 5. S'assurer que toutes les features requises sont là
+        # 6. S'assurer que toutes les features requises sont là
         for col in self.feature_names:
             if col not in df_one.columns:
                 df_one[col] = 0
                 
-        X = df_one[self.feature_names]
-        X_scaled = self.scaler.transform(X)
-        X_final = pd.DataFrame(X_scaled, columns=self.feature_names)
-        return float(self.best_model.predict(X_final)[0])
+        X_final = df_one[self.feature_names]
+        
+        # Prédire (On ne scale plus pour HGBoost qui est le gagnant par défaut)
+        try:
+            if isinstance(self.best_model, LinearRegression):
+                 X_scaled = self.scaler.transform(X_final)
+                 X_final = pd.DataFrame(X_scaled, columns=self.feature_names)
+            
+            pred = float(self.best_model.predict(X_final)[0])
+        except Exception as e:
+            # Fallback scaling if model was trained with it
+            X_scaled = self.scaler.transform(X_final)
+            X_final_scaled = pd.DataFrame(X_scaled, columns=self.feature_names)
+            pred = float(self.best_model.predict(X_final_scaled)[0])
+        
+        # Debug info (temporary)
+        # print(f"\nDebug Features for {species}:")
+        # print(X_final[['volume_kg', 'log_volume', 'espece_encoded', 'prix_moyen_espece', 'ratio_volume']])
+        print(X_final)
+        
+        # Prédire et s'assurer que le prix est positif (minimum 1.0 DH/kg)
+        # pred = float(self.best_model.predict(X_final)[0]) # This line is now inside the try-except block
+        
+        # Appliquer un coefficient de rareté si on est en Repos Biologique
+        # (Ajustement métier pour garantir la logique même si le modèle a peu de données en période de fermeture)
+        if df_one['is_repos_biologique'].iloc[0] == 1:
+            pred = pred * 1.25
+            
+        return max(pred, 1.0)
 
 
 def train_and_save_model(data_path='donnees_simulation_onp.csv'):

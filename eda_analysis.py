@@ -20,14 +20,16 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import seaborn as sns
 import matplotlib.pyplot as plt
+from utils import REGION_MAP
 
 
-# Template Plotly professionnel (couleurs ONP)
+# Template Plotly professionnel (couleurs ONP Premium)
 ONP_TEMPLATE = go.layout.Template()
 ONP_TEMPLATE.layout.plot_bgcolor = 'rgba(0,0,0,0)'
 ONP_TEMPLATE.layout.paper_bgcolor = 'rgba(0,0,0,0)'
-ONP_TEMPLATE.layout.font = {'family': "Inter, sans-serif", 'color': "#1e293b"}
-ONP_TEMPLATE.layout.colorway = ["#1e40af", "#059669", "#d97706", "#dc2626", "#7c3aed"]  # Bleu, Vert, Orange, Rouge, Violet
+ONP_TEMPLATE.layout.font = {'family': "Outfit, sans-serif", 'color': "#0F172A"}
+# Palette Halieutis Excellence: Deep Navy, Emerald, Gold, Azure
+ONP_TEMPLATE.layout.colorway = ["#0B1120", "#10B981", "#FFD700", "#0EA5E9", "#6366F1"]  
 
 
 def plot_price_distribution_by_species(df):
@@ -142,28 +144,38 @@ def plot_seasonal_analysis(df):
     if 'mois' not in df.columns:
         df['mois'] = pd.to_datetime(df['date_vente']).dt.month
     
+    # Calculer le prix moyen par mois et assurer la présence des 12 mois
     prix_mensuel = df.groupby('mois')['prix_unitaire_dh'].mean()
+    prix_mensuel = prix_mensuel.reindex(range(1, 13))
     
     mois_noms = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 
                  'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
     
     fig = go.Figure()
     
+    # Masquer les marqueurs pour les mois sans données (NaN)
     fig.add_trace(go.Scatter(
         x=mois_noms,
         y=prix_mensuel.values,
         mode='lines+markers',
-        name='Prix Moyen',
-        line=dict(color='#1e40af', width=3),
-        marker=dict(size=10, color='#059669')
+        name='Prix Moyen (DH/kg)',
+        line=dict(color='#0EA5E9', width=4, shape='spline'),
+        marker=dict(size=10, color='#0B1120', line=dict(width=2, color='white')),
+        connectgaps=True,
+        hovertemplate="Mois: %{x}<br>Prix: %{y:.2f} DH/kg<extra></extra>"
     ))
     
     fig.update_layout(
-        title='Saisonnalité des prix',
-        xaxis_title='Mois',
-        yaxis_title='Prix Moyen (DH/kg)',
+        title=dict(
+            text='Saisonnalité des Prix Moyens',
+            font=dict(size=18, family="Outfit", color="#0F172A")
+        ),
+        xaxis=dict(title=None, showgrid=False),
+        yaxis=dict(title='Prix (DH/kg)', gridcolor='rgba(226, 232, 240, 0.4)'),
         template=ONP_TEMPLATE,
-        height=450
+        height=450,
+        margin=dict(l=40, r=40, t=60, b=40),
+        hovermode="x unified"
     )
     
     return fig
@@ -238,6 +250,65 @@ def plot_top_species_by_volume(df, top_n=10):
     return fig
 
 
+def plot_regional_activity_heatmap(df):
+    """
+    Crée une heatmap de l'activité agrégée par région et par mois.
+    Idéal pour une vision stratégique quand il y a trop de ports.
+    """
+    df_reg = df.copy()
+    
+    # Créer la colonne mois si elle n'existe pas
+    if 'mois' not in df_reg.columns:
+        df_reg['mois'] = pd.to_datetime(df_reg['date_vente']).dt.month
+        
+    # Mapper les ports aux régions
+    df_reg['region'] = df_reg['port'].str.upper().map(REGION_MAP).fillna('AUTRE')
+    
+    # Créer le pivot table par région
+    heatmap_data = df_reg.pivot_table(
+        values='volume_kg',
+        index='region',
+        columns='mois',
+        aggfunc='sum',
+        fill_value=0
+    )
+    
+    # Assurer que tous les mois sont présents (1-12)
+    heatmap_data = heatmap_data.reindex(columns=range(1, 13), fill_value=0)
+    
+    mois_noms = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 
+                 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
+    
+    # Conversion en tonnes
+    z_tonnes = heatmap_data.values / 1000
+    
+    fig = go.Figure(data=go.Heatmap(
+        z=z_tonnes,
+        x=mois_noms,
+        y=heatmap_data.index,
+        colorscale='Viridis',
+        text=np.round(z_tonnes, 1),
+        texttemplate='%{text}',
+        textfont={"size": 11, "family": "Outfit"},
+        colorbar=dict(title="Volume (T)", thickness=15),
+        hovertemplate="Région: %{y}<br>Mois: %{x}<br>Volume: %{z:.1f} T<extra></extra>"
+    ))
+    
+    fig.update_layout(
+        title=dict(
+            text='Activité Halieutique par Région (Tonnes)',
+            font=dict(size=18, family="Outfit", color="#0F172A")
+        ),
+        xaxis=dict(title=None),
+        yaxis=dict(title=None),
+        margin=dict(l=40, r=40, t=60, b=40),
+        height=400,
+        template=ONP_TEMPLATE
+    )
+    
+    return fig
+
+
 def plot_port_activity_heatmap(df):
     """
     Crée une heatmap de l'activité par port et mois.
@@ -253,7 +324,17 @@ def plot_port_activity_heatmap(df):
         df['mois'] = pd.to_datetime(df['date_vente']).dt.month
     
     # Créer le pivot table
-    heatmap_data = df.pivot_table(
+    pivot_total = df.pivot_table(
+        values='volume_kg',
+        index='port',
+        aggfunc='sum'
+    ).sort_values('volume_kg', ascending=False)
+    
+    # Garder uniquement le Top 10
+    top_10_ports = pivot_total.head(10).index
+    df_filtered = df[df['port'].isin(top_10_ports)]
+    
+    heatmap_data = df_filtered.pivot_table(
         values='volume_kg',
         index='port',
         columns='mois',
@@ -261,26 +342,44 @@ def plot_port_activity_heatmap(df):
         fill_value=0
     )
     
+    # Trier par volume total (du plus haut au plus bas)
+    heatmap_data = heatmap_data.reindex(top_10_ports)
+    
+    # Assurer que tous les mois sont présents (1-12) pour l'alignement correct de l'axe X
+    heatmap_data = heatmap_data.reindex(columns=range(1, 13), fill_value=0)
+    
     mois_noms = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 
                  'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
     
+    # Conversion en tonnes pour la lisibilité
+    z_tonnes = heatmap_data.values / 1000
+    
     fig = go.Figure(data=go.Heatmap(
-        z=heatmap_data.values,
+        z=z_tonnes,
         x=mois_noms,
         y=heatmap_data.index,
-        colorscale='Blues',
-        text=np.round(heatmap_data.values / 1000, 1),  # En tonnes
-        texttemplate='%{text}T',
-        textfont={"size": 10},
-        colorbar=dict(title="Volume (kg)")
+        colorscale='Viridis',
+        text=np.round(z_tonnes, 1),
+        texttemplate='%{text}',
+        textfont={"size": 9, "family": "Outfit"},
+        colorbar=dict(
+            title="Volume (T)",
+            thickness=15,
+            len=0.8
+        ),
+        hovertemplate="Port: %{y}<br>Mois: %{x}<br>Volume: %{z:.1f} T<extra></extra>"
     ))
     
     fig.update_layout(
-        title='Activité des ports par mois',
-        xaxis_title='Mois',
-        yaxis_title='Port',
-        template=ONP_TEMPLATE,
-        height=400
+        title=dict(
+            text='Top 10 Ports : Activité Mensuelle (Tonnes)',
+            font=dict(size=18, family="Outfit", color="#0F172A")
+        ),
+        xaxis=dict(title='Mois de l\'année', tickfont=dict(size=10)),
+        yaxis=dict(title='Ports', tickfont=dict(size=10)),
+        margin=dict(l=40, r=40, t=60, b=40),
+        height=500,
+        template=ONP_TEMPLATE
     )
     
     return fig

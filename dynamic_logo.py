@@ -34,17 +34,12 @@ def get_onp_logo_svg() -> str:
                 <stop offset="0%" style="stop-color:#0369A1;stop-opacity:1" />
                 <stop offset="100%" style="stop-color:#0EA5E9;stop-opacity:1" />
             </linearGradient>
-            <filter id="glow">
-                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                <feMerge>
-                    <feMergeNode in="coloredBlur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                </feMerge>
+            <filter id="none">
             </filter>
         </defs>
         
         <!-- Background Circle -->
-        <circle cx="100" cy="100" r="95" fill="rgba(255,255,255,0.1)" stroke="#0EA5E9" stroke-width="2" filter="url(#glow)"/>
+        <circle cx="100" cy="100" r="95" fill="rgba(255,255,255,0.1)" stroke="#0EA5E9" stroke-width="2"/>
         
         <!-- Fish Body (Sardine) -->
         <ellipse cx="100" cy="100" rx="50" ry="35" fill="url(#blueGrad)" opacity="0.9"/>
@@ -78,7 +73,7 @@ def display_premium_onp_logo(size: int = 200, with_animation: bool = True) -> st
     """Affiche le logo ONP premium : utilise 'logo onp.png' si présent, sinon SVG sans animation."""
     b64 = get_logo_onp_png_base64()
     if b64:
-        img_style = " filter: drop-shadow(0 10px 20px rgba(14, 165, 233, 0.25)); border-radius: 12px;"
+        img_style = " border-radius: 12px;"
         return f"""
         <div style="
             display: flex;
@@ -155,15 +150,12 @@ def create_animated_kpi_header() -> str:
         </div>
         
         <div style="
-            background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(99, 102, 241, 0.1));
-            border: 1px solid rgba(14, 165, 233, 0.3);
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.05), rgba(16, 185, 129, 0.05));
+            border: 1px solid rgba(14, 165, 233, 0.2);
             border-radius: 12px;
             padding: 15px;
             text-align: center;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s;
-        " class="kpi-card" onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 15px 30px rgba(14, 165, 233, 0.2)';"
-           onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+        " class="kpi-card">
             <div style="font-size: 18px; margin-bottom: 5px; color: #4F46E5;">●</div>
             <div style="color: #94A3B8; font-size: 12px; text-transform: uppercase;">Volume</div>
             <div style="color: #4F46E5; font-size: 20px; font-weight: 700;">-</div>
