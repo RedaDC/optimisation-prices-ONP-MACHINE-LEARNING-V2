@@ -2731,7 +2731,7 @@ def render_page_simulateur_b2b():
         st.markdown("### 1. Paramètres d'Achat")
         volume = st.number_input("Volume Acquis (en kg)", min_value=1, value=1000, step=100)
         prix_achat = st.number_input("Prix d'Achat Brut en Halle (DH/kg)", min_value=1.0, value=25.0, step=1.0)
-        prix_revente = st.number_input("💸 Prix de Revente Estimé (DH/kg)", min_value=1.0, value=35.0, step=1.0)
+        prix_revente = st.number_input("Prix de Revente Estimé (DH/kg)", min_value=1.0, value=35.0, step=1.0)
         
         st.markdown("<hr style='margin: 1rem 0;'>", unsafe_allow_html=True)
         
