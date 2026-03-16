@@ -5,82 +5,222 @@ import os
 def extract_ml_data(file_input, output_path='onp_real_ml_data.csv'):
     """
     Extrait les données mensuelles détaillées pour l'entraînement du Machine Learning.
-    Transforme le format 'large' de Feuil2 en format 'long'.
+    Version robuste : Scan intelligent des en-têtes pour détecter Port, Espèce, Dates et Métriques.
     """
-    print(f"DEBUG: Loading {file_input}...")
+    print(f"--- TRACE: Beginning extraction for {file_input}")
     try:
         xl = pd.ExcelFile(file_input)
-        print(f"DEBUG: Sheets found: {xl.sheet_names}")
         
-        # Use first sheet if Page1_1 is found or fallback to first
-        sheet_name = 'Page1_1' if 'Page1_1' in xl.sheet_names else xl.sheet_names[0]
-        print(f"DEBUG: Using sheet: {sheet_name}")
-        
+        # 1. Sélection de la meilleure feuille
+        sheet_candidates = []
+        for sn in xl.sheet_names:
+            try:
+                df_test = xl.parse(sn, header=None, nrows=20)
+                if df_test.empty: continue
+                
+                keywords = ["volume", "ca", "chiffre", "cas", "recette", "espece", "port"]
+                score = 0
+                for i in range(min(15, len(df_test))):
+                    row_vals = [str(x).lower() for x in df_test.iloc[i].dropna().tolist()]
+                    row_score = sum(1 for k in keywords if any(k in v for v in row_vals))
+                    score = max(score, row_score)
+                
+                # Bonus pour les noms de feuilles explicites
+                sn_lower = sn.lower()
+                if any(x in sn_lower for x in ["extract", "brute", "data", "base", "real"]): score += 2
+                if any(x in sn_lower for x in ["variant", "compar", "delta", "recap"]): score -= 1
+                
+                # Bonus pour les feuilles larges (plus de colonnes = souvent plus de mois)
+                if df_test.shape[1] > 10: score += 1
+                
+                sheet_candidates.append((sn, score))
+            except: continue
+            
+        if sheet_candidates:
+            sheet_candidates.sort(key=lambda x: x[1], reverse=True)
+            # Priorité aux feuilles qui semblent être des extractions brutes pour avoir tout le détail
+            best_candidates = [s for s, score in sheet_candidates if "brute" in s.lower() or "extraction" in s.lower()]
+            sheet_name = best_candidates[0] if best_candidates else sheet_candidates[0][0]
+            print(f"--- TRACE: Best sheet candidate: '{sheet_name}' (score {sheet_candidates[0][1]})")
+        else:
+            sheet_name = xl.sheet_names[0]
+            print(f"--- TRACE: No candidates, using first sheet: '{sheet_name}'")
+            
         df = xl.parse(sheet_name, header=None)
-        print(f"DEBUG: Dataset shape: {df.shape}")
-        
     except Exception as e:
-        print(f"Erreur lecture ML data: {e}")
+        print(f"--- TRACE ERROR: {e}")
         return None
 
-    row_year = df.iloc[0].ffill().astype(str).tolist()
-    row_month = df.iloc[1].astype(str).tolist()
-    row_met = df.iloc[2].astype(str).tolist()
-    
-    data_raw = df.iloc[3:].copy()
-    data_raw[0] = data_raw[0].ffill() # Port
-    
-    ml_records = []
-    
-    # Parcourir chaque colonne à partir de la 2ème
-    for col_idx in range(2, df.shape[1]):
-        year = row_year[col_idx]
-        month = row_month[col_idx]
-        metric = str(row_met[col_idx]).lower()
-        
-        # On ne prend que les colonnes mensuelles (pas les totaux)
-        if month == 'nan' or month == '' or month == 'None':
-            continue
+    # 2. Identification de la ligne d'en-tête principale
+    header_idx = -1
+    max_score = 0
+    keywords_main = ["volume", "ca", "chiffre", "esp", "port"]
+    for i in range(min(25, len(df))):
+        row_vals = [str(x).lower() for x in df.iloc[i].dropna().tolist()]
+        score = sum(1 for k in keywords_main if any(k in v for v in row_vals))
+        if score > max_score:
+            max_score = score
+            header_idx = i
             
-        # On traite par paire Volume/CA. Pour simplifier, on cherche le Volume 
-        # et on suppose que le CA est juste à côté (structure habituelle de l'Excel)
-        if "volume" in metric:
-            # Chercher le CA correspondant (généralement col suivante)
-            ca_col_idx = col_idx + 1
-            if ca_col_idx < df.shape[1] and ("ca" in str(row_met[ca_col_idx]).lower() or "chiffre" in str(row_met[ca_col_idx]).lower()):
+    if header_idx == -1:
+        print("--- TRACE: Could not identify header row.")
+        return None
+    print(f"--- TRACE: Header row identified at index {header_idx}")
+    
+    # 3. Scan des colonnes
+    header_area = df.iloc[:header_idx+1].copy()
+    
+    # Remplissage intelligent des headers fusionnés (ex: Années)
+    for r in range(header_area.shape[0]):
+        # version future-safe pour ffill
+        header_area.iloc[r] = header_area.iloc[r].ffill()
+    
+    col_port = 0
+    col_species = 1
+    main_row_strs = [str(x).lower() for x in df.iloc[header_idx].tolist()]
+    
+    # Détection plus fine
+    found_port = False
+    found_species = False
+    for i, val in enumerate(main_row_strs):
+        if not found_port and any(k in val for k in ["port", "halles", "entité"]): 
+            col_port = i
+            found_port = True
+        elif not found_species and "esp" in val: 
+            col_species = i
+            found_species = True
+            
+    # Correction spécifique pour les rapports de type 'Variation' ou 'DR'
+    if main_row_strs[0] == 'dr/espece' or main_row_strs[0] == 'dr':
+        col_port = 0
+        col_species = 0 # Dans certains cas ils sont fusionnés ou un seul suffit
+        # Mais si on a 'Entité' en col 1, c'est le port
+        if len(main_row_strs) > 1 and "entité" in main_row_strs[1]:
+            col_port = 1
+            col_species = 4 # Souvent l'espèce est plus loin (col 4 pour esp)
+        elif len(main_row_strs) > 4 and "esp" in main_row_strs[4]:
+            col_species = 4
+
+    print(f"--- TRACE: Port column: {col_port}, Species column: {col_species} (Source: {main_row_strs[:6]})")
+
+    ml_records = []
+    import re
+    
+    for c in range(max(col_port, col_species) + 1, df.shape[1]):
+        col_headers = [str(x).lower().strip() for x in header_area[c].tolist() if pd.notna(x)]
+        full_header_str = " ".join(col_headers)
+        
+        if "volume" in full_header_str and all(x not in full_header_str for x in ["cumul", "total", "variation"]):
+            # Extract year from volume header first
+            vol_year = None
+            for h_val in col_headers:
+                y_match = re.search(r'(202[0-9])', h_val)
+                if y_match: 
+                    vol_year = int(y_match.group(1))
+                    break
+            
+            ca_idx = -1
+            # Search for CA column nearby with SAME year
+            for offset in [1, -1, 2, -2, 3, -3, 4, -4]:
+                test_c = c + offset
+                if 0 <= test_c < df.shape[1]:
+                    test_headers = [str(x).lower().strip() for x in header_area[test_c].tolist() if pd.notna(x)]
+                    test_header_str = " ".join(test_headers)
+                    if any(x in test_header_str for x in ["ca", "chiffre", "recette", "cas"]):
+                        # Verify year match
+                        if vol_year:
+                            test_year = None
+                            for th in test_headers:
+                                ty_match = re.search(r'(202[0-9])', th)
+                                if ty_match:
+                                    test_year = int(ty_match.group(1))
+                                    break
+                            if test_year == vol_year:
+                                ca_idx = test_c
+                                break
+                        else:
+                            ca_idx = test_c
+                            break
+            
+            if ca_idx != -1:
+                year, month = vol_year, None
+                for h_val in col_headers:
+                    if h_val == 'nan' or not h_val.strip(): continue
+                    if not year:
+                        y_match = re.search(r'(202[0-9])', h_val)
+                        if y_match: year = int(y_match.group(1))
+                    if not month:
+                        month_map = {
+                             'jan': 1, 'fév': 2, 'mar': 3, 'avr': 4, 'mai': 5, 'jui': 6, 'jul': 7, 
+                             'aoû': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'déc': 12, 'janv': 1, 
+                             'fevr': 2, 'mars': 3, 'avri': 4, 'juin': 6, 'juil': 7, 'aout': 8, 
+                             'sept': 9, 'octo': 10, 'nove': 11, 'dece': 12
+                        }
+                        for m_name, m_num in month_map.items():
+                            if m_name in h_val: 
+                                month = m_num
+                                break
+                        if not month:
+                            m_match = re.search(r'\b(0?[1-9]|1[0-2])\b', h_val)
+                            if m_match and len(h_val) <= 5: month = int(m_match.group(1))
                 
-                for _, row in data_raw.iterrows():
-                    port = row[0]
-                    species = row[1]
-                    vol = str(row[col_idx]).replace(' ', '').replace(',', '.')
-                    ca = str(row[ca_col_idx]).replace(' ', '').replace(',', '.')
+                if year and not month:
+                    month = 12
+                    print(f"--- TRACE: Annual data detected for {year}, defaulting to month 12")
+
+                if year and month:
+                    print(f"--- TRACE: Processing Col {c} (Vol) & {ca_idx} (CA) for {month}/{year}")
+                    data_slice = df.iloc[header_idx + 1:].copy()
+                    current_port = "Unknown"
+                    found_in_col = 0
                     
-                    try:
-                        v_val = float(vol)
-                        c_val = float(ca)
-                        if v_val > 0:
-                            price = c_val / v_val # Prix unitaire en KDh/T -> DH/kg (c'est la même chose)
-                            ml_records.append({
-                                'port': port,
-                                'espece': species,
-                                'annee': int(float(year)),
-                                'mois': int(float(month)),
-                                'volume_kg': v_val * 1000,
-                                'prix_unitaire_dh': price
-                            })
-                    except Exception as e:
-                        # print(f"Skip row: {vol} / {ca} - {e}")
-                        continue
-    
-    print(f"DEBUG: Records found: {len(ml_records)}")
-    
-    ml_df = pd.DataFrame(ml_records)
-    if not ml_df.empty:
-        # Nettoyage additionnel
-        ml_df = ml_df.dropna()
+                    for idx, v_raw in data_slice[c].items():
+                        c_raw = data_slice.loc[idx, ca_idx]
+                        raw_val_0 = str(data_slice.loc[idx, 0]).strip()
+                        
+                        if col_port == col_species:
+                             if pd.isna(v_raw) or str(v_raw).lower() == 'nan':
+                                 if len(raw_val_0) > 1 and "total" not in raw_val_0.lower(): current_port = raw_val_0
+                                 continue
+                             p, s = current_port, raw_val_0
+                        else:
+                             p = str(data_slice.loc[idx, col_port]).strip()
+                             s = str(data_slice.loc[idx, col_species]).strip()
+                        
+                        if not p or p.lower() == 'nan' or 'total' in p.lower(): continue
+                        
+                        # Fix MG: If species is missing or "total", check if it's an MG row which often has aggregate data
+                        if not s or s.lower() == 'nan' or 'total' in s.lower():
+                            if "MG " in p.upper():
+                                s = "TOUTES ESPECES (MG)"
+                            else:
+                                continue
+                        
+                        try:
+                            v_val = float(str(v_raw).replace(' ', '').replace(',', '.'))
+                            c_val = float(str(c_raw).replace(' ', '').replace(',', '.'))
+                            if v_val > 0:
+                                ml_records.append({
+                                    'port': p, 'espece': s, 'annee': year, 'mois': month,
+                                    'volume_kg': v_val * 1000, 'prix_unitaire_dh': (c_val/v_val)
+                                })
+                                found_in_col += 1
+                        except: continue
+                    print(f"--- TRACE: Found {found_in_col} rows in this column couple.")
+                else:
+                    print(f"--- TRACE: Skipped Col {c} - Date components missing (Year: {year}, Month: {month})")
+
+    if ml_records:
+        ml_df = pd.DataFrame(ml_records)
+        ml_df = ml_df[ml_df['port'].str.len() > 1]
         ml_df.to_csv(output_path, index=False)
-        print(f"DONE: Dataset ML genere: {output_path} ({len(ml_df)} lignes)")
+        print(f"--- TRACE SUCCESS: {len(ml_df)} total records saved.")
         return ml_df
+    
+    print("--- TRACE WARNING: No records found at the end.")
+    return None
+    
+    print("WARNING: No data records found.")
     return None
 
 def process_onp_report(file_input, output_path=None):
@@ -90,12 +230,35 @@ def process_onp_report(file_input, output_path=None):
     """
     try:
         xl = pd.ExcelFile(file_input)
-        # On cherche Feuil2 ou similar, sinon la première feuille
-        sheet_name = 'Feuil2' if 'Feuil2' in xl.sheet_names else xl.sheet_names[0]
+        
+        # Recherche intelligente de la feuille de données par contenu
+        sheet_candidates = []
+        for sn in xl.sheet_names:
+            try:
+                df_test = xl.parse(sn, header=None, nrows=15)
+                keywords = ["volume", "ca", "chiffre", "cas", "recette", "espece", "port"]
+                score = 0
+                for i in range(len(df_test)):
+                    row_values = [str(x).lower() for x in df_test.iloc[i].dropna().tolist()]
+                    score = max(score, sum(1 for k in keywords if any(k in v for v in row_values)))
+                if score >= 2:
+                    sheet_candidates.append((sn, score))
+            except: continue
+            
+        if sheet_candidates:
+            sheet_candidates.sort(key=lambda x: x[1], reverse=True)
+            # Priorité aux feuilles type 'Variation' ou 'RECAP' pour les rapports DR si MG est l'objectif
+            prio_sheets = [s for s, score in sheet_candidates if any(x in s.lower() for x in ["recap", "variation"])]
+            sheet_name = prio_sheets[0] if prio_sheets else sheet_candidates[0][0]
+        else:
+            sheet_name = 'RECAP' if 'RECAP' in xl.sheet_names else ('Feuil2' if 'Feuil2' in xl.sheet_names else xl.sheet_names[0])
+            
+        print(f"DEBUG: process_onp_report using sheet: '{sheet_name}'")
         df = xl.parse(sheet_name, header=None)
     except Exception as e:
         print(f"Erreur lecture Excel: {e}")
         return None
+
     
     if df.shape[1] < 5: 
         return None

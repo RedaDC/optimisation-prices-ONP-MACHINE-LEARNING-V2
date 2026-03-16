@@ -1,0 +1,22 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.db
+.sqlite3
+.env
+.venv
+venv
+env
+/brain
+.gemini
+/scripts/temp
+*.docx
+*.xlsx
+# Garder uniquement les données essentielles si nécessaire, 
+# mais ici on exclut les fichiers de test volumineux
+debug_*.py
+test_*.py
+verify_*.py

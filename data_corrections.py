@@ -31,12 +31,12 @@ def apply_data_corrections(df_raw):
             'reason': 'Hausse modérée confirmée par les données'
         },
         'ALGUES': {
-            'factor_2025': 1.478,  # Explosion de 47.8%
-            'reason': 'CA 2025 multiplié par hausse massive des débarquements'
+            'factor_2025': 1.05,  # Hausse modérée de 5% (réduit pour focus Céphalopodes)
+            'reason': 'Croissance sectorielle modérée'
         },
         'CRUSTACES': {
-            'factor_2025': 1.0,  # Garder stable
-            'reason': 'Pas de tendance spécifique mentionnée'
+            'factor_2025': 1.0,  # Stable
+            'reason': 'Stabilité confirmée'
         }
     }
     

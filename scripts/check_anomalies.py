@@ -1,6 +1,10 @@
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
-import os
 from ml_models import ONPPricePredictor
 from ml_operations import detect_market_anomalies
 from utils import clean_data, create_features

@@ -24,3 +24,4 @@ statsmodels
 # Utilities
 openpyxl
 python-docx
+fpdf

@@ -77,8 +77,9 @@ def normalize_species_name(name):
     name = re.sub(r'\s+gg$', '', name)
     name = re.sub(r'\s+\(pp\)$', '', name)
     
-    # Puis nettoyage des tailles (G, M, P, T) à la fin
-    name = re.sub(r'\s+[gmpt]+$', '', name)
+    # Puis nettoyage des tailles (G, M, P, T, GG, TT) à la fin
+    # Supporte les formats: "ESPECE G", "ESPECE-G", "ESPECE_G", "ESPECE GG"
+    name = re.sub(r'[\s\-_]+[gmptx]{1,2}$', '', name)
     
     # Normalisation des caractères
     name = ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn')
@@ -130,7 +131,10 @@ def get_species_image_path(species_name):
                 return direct_path
     
     # 3. Fallback sur les catégories génériques (mots clés)
-    if any(k in key for k in ["crevette", "shrimp"]): return IMAGES_PECHE_MAROC.get("crevette_rose", default_img)
+    if any(k in key for k in ["crevette", "shrimp"]):
+        local_crevette = os.path.join(img_dir, "crevette.jpg")
+        if os.path.exists(local_crevette): return local_crevette
+        return IMAGES_PECHE_MAROC.get("crevette_rose", default_img)
     if any(k in key for k in ["moule", "mussel"]): return IMAGES_PECHE_MAROC.get("moule", default_img)
     if any(k in key for k in ["coquill", "shell"]): return IMAGES_PECHE_MAROC.get("coquillages", default_img)
     if "sole" in key: return IMAGES_PECHE_MAROC.get("sole", default_img)
@@ -160,25 +164,31 @@ def has_real_species_image(species_name):
     return True
 
 def get_unique_valid_species(df):
-    """Retourne une liste d'espèces dédoublonnées et ayant une image réelle."""
+    """Retourne une liste d'espèces dédoublonnées et 'propres' (sans tailles) pour l'UI."""
     import pandas as pd
     
-    # Récupérer les noms de colonnes possibles
     col_name = "espece" if "espece" in df.columns else "Espèce" if "Espèce" in df.columns else None
     if not col_name: return []
     
     all_raw = sorted(df[col_name].dropna().unique().tolist())
-        
+    
     seen_norm = set()
     final_list = []
     
     for s in all_raw:
         if not s: continue
         norm = normalize_species_name(s)
-        # On ne garde que la première occurrence rencontrée pour chaque clé normalisée
-        # ET on vérifie si cette clé a une image réelle
+        
+        # On ne garde qu'une seule version par espèce "racine"
         if norm not in seen_norm and has_real_species_image(s):
-            final_list.append(s)
+            # Créer un nom propre : ex "Merlu" au lieu de "merlu"
+            clean_name = norm.replace('_', ' ').upper()
+            
+            # Cas particuliers pour garder le style ONP
+            if clean_name == "BAR": clean_name = "BAR (LOUP)"
+            
+            if clean_name not in final_list:
+                final_list.append(clean_name)
             seen_norm.add(norm)
             
     return sorted(final_list)
@@ -217,6 +227,11 @@ def clean_data(df):
     for col in categorical_cols:
         if df_clean[col].isnull().any():
             df_clean[col].fillna(df_clean[col].mode()[0], inplace=True)
+            
+    # Filtrage des lignes avec des valeurs 'Inconnu' ou 'Autre' dans l'espèce
+    if 'espece' in df_clean.columns:
+        unwanted = ['INCONNU', 'AUTRE', 'GROUPE INCONNU', 'AUTRES', 'INCONNUS']
+        df_clean = df_clean[~df_clean['espece'].str.upper().str.strip().isin(unwanted)]
     
     # Suppression des valeurs aberrantes
     # Prix négatifs ou nuls
@@ -227,15 +242,22 @@ def clean_data(df):
     if 'volume_kg' in df_clean.columns:
         df_clean = df_clean[df_clean['volume_kg'] > 0]
     
-    # Suppression des outliers extrêmes (au-delà de 3 écarts-types)
+    # Suppression des outliers par espèce (plus précis)
+    # On utilise un seuil de 5 écarts-types pour être tolérant avec les espèces à haute valeur
+    # mais éliminer les erreurs de saisie extrêmes.
     for col in ['prix_unitaire_dh', 'volume_kg']:
-        if col in df_clean.columns:
-            mean = df_clean[col].mean()
-            std = df_clean[col].std()
-            df_clean = df_clean[
-                (df_clean[col] >= mean - 3*std) & 
-                (df_clean[col] <= mean + 3*std)
-            ]
+        if col in df_clean.columns and 'espece' in df_clean.columns:
+            # Calculer mean/std par espèce séparément (évite TypeError unhashable type: 'list')
+            group = df_clean.groupby('espece')[col]
+            m_vals = group.transform('mean')
+            s_vals = group.transform('std')
+            
+            # Garder les lignes dans 5 sigma ou les espèces avec trop peu de données
+            mask = (df_clean[col] <= m_vals + 5 * s_vals) & \
+                   (df_clean[col] >= m_vals - 5 * s_vals)
+            # Si std est nul ou NaN (une seule ligne), on garde
+            mask = mask | s_vals.isna() | (s_vals == 0)
+            df_clean = df_clean[mask]
     
     return df_clean
 
@@ -547,14 +569,15 @@ def create_features(df):
         df_feat['prix_moyen_espece'] = df_feat['prix_moyen_espece'].fillna(20.0)
     
     # Prix moyen par port (indicateur de marché local)
+    if 'port' in df_feat.columns:
+        df_feat['region'] = df_feat['port'].str.upper().str.strip().map(REGION_MAP).fillna('AUTRE')
+        
     if 'port' in df_feat.columns and 'prix_unitaire_dh' in df_feat.columns:
         prix_moyen = df_feat.groupby('port')['prix_unitaire_dh'].transform('mean')
         df_feat['prix_moyen_port'] = prix_moyen
-
+        
         # Multi-Port: Interaction entre ports voisins via la région
-        df_feat['region'] = df_feat['port'].str.upper().map(REGION_MAP).fillna('AUTRE')
         prix_moyen_region = df_feat.groupby(['region', 'espece'])['prix_unitaire_dh'].transform('mean')
-        # Si pas de donnée régionale, on utilise le prix moyen espèce (rempli plus tard ou déjà dispo)
         df_feat['prix_moyen_region'] = prix_moyen_region
 
     # Variables Exogènes (Météo & Carburant)
@@ -662,9 +685,13 @@ def calculate_financial_metrics(df):
         metrics['recette_par_port'] = recette_port
         metrics['recette_par_port'] = recette_port
     
-    # Recette par espèce
+    # Recette par espèce (avec filtrage des catégories inconnues)
     if 'espece' in df.columns:
-        recette_espece = df.groupby('espece').apply(
+        unwanted = ['INCONNU', 'AUTRE', 'GROUPE INCONNU', 'AUTRES', 'INCONNUS']
+        mask = ~df['espece'].str.upper().str.strip().isin(unwanted)
+        df_filtered_esp = df[mask]
+        
+        recette_espece = df_filtered_esp.groupby('espece').apply(
             lambda x: (x['prix_unitaire_dh'] * x['volume_kg']).sum()
         )
         if not recette_espece.empty:

@@ -22,7 +22,7 @@ def retrain_model_from_excel(uploaded_file):
         df_ml = extract_ml_data(uploaded_file, output_path=temp_csv)
         
         if df_ml is None or df_ml.empty:
-            return {"error": "Impossible d'extraire les données du fichier (Format non reconnu ou feuille 'Feuil2' manquante)."}
+            return {"error": "Impossible d'extraire les données du fichier (Format non reconnu ou données manquantes)."}
             
         # 2. Réentraînement
         predictor, results = train_and_save_model(temp_csv)

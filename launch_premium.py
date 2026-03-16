@@ -23,7 +23,7 @@ CONFIG = {
     "app_file": "app_premium.py",
     "port": 8501,
     "host": "localhost",
-    "title": "🐟 ONP - Optimisation des Prix",
+    "title": "ONP - Optimisation des Prix",
     "description": "Application Premium avec Design Moderne",
     "requirements_file": "requirements.txt"
 }
@@ -79,7 +79,7 @@ def check_dependencies():
         "pandas",
         "numpy",
         "plotly",
-        "scikit-learn"
+        "sklearn"
     ]
     
     missing = []

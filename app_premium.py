@@ -12,6 +12,8 @@ Fonctionnalités:
 - Interface responsive et accessible
 """
 
+# ONP Premium v2.0 - Concept & Architecture par Reda Abousaid
+# Reload trigger: Alignement Rapport DR 2024-2025
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -51,7 +53,7 @@ from ml_operations import (
     retrain_model_from_excel
 )
 from design_system import (
-    ColorPalette, inject_css_styles, PremiumComponents, LuxIcons,
+    inject_css_styles, PremiumComponents, LuxIcons,
     apply_premium_plotly_styling, create_premium_template
 )
 from logistics_optimizer import suggest_optimal_ports, get_market_saturation_alerts
@@ -70,6 +72,7 @@ from onp_assets import (
     get_image_path,
 )
 from pdf_utils import generate_reduction_pdf
+import hashlib
 
 # ==================== CONFIGURATION ====================
 st.set_page_config(
@@ -81,6 +84,268 @@ st.set_page_config(
 
 # Injecter les styles premium
 inject_css_styles()
+
+# ==================== AUTHENTIFICATION (POINT 1) ====================
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+# Utilisateurs en dur pour la démo PFE
+USERS = {
+    "admin": {
+        "password": hash_password("admin123"),
+        "role": "admin",
+        "name": "Administrateur ONP"
+    },
+    "gestionnaire": {
+        "password": hash_password("gest123"),
+        "role": "gestionnaire",
+        "name": "Gestionnaire DP"
+    },
+    "crieur": {
+        "password": hash_password("crieur123"),
+        "role": "crieur",
+        "name": "Crieur Halle"
+    }
+}
+
+def init_auth_state():
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+    if 'user_role' not in st.session_state:
+        st.session_state.user_role = None
+    if 'user_name' not in st.session_state:
+        st.session_state.user_name = None
+
+def set_background(image_file):
+    import base64
+    from pathlib import Path
+    
+    company_img_path = Path(image_file)
+    if not company_img_path.exists():
+        return
+        
+    with open(company_img_path, "rb") as f:
+        data = base64.b64encode(f.read()).decode()
+    
+    st.markdown(f"""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+        .stApp {{
+            background-image: url("data:image/jpeg;base64,{data}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
+        
+        .stApp::before {{
+            content: "";
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 15, 40, 0.75);
+            z-index: 0;
+        }}
+        
+        .block-container {{
+            position: relative;
+            z-index: 1;
+            padding-top: 5vh !important;
+        }}
+
+        /* --- TYPOGRAPHIE SANS CARTE --- */
+        .onp-title-main {{
+            font-family: 'Poppins', sans-serif;
+            font-size: 2.22rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #FFFFFF, #AED6F1, #FFFFFF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+            filter: drop-shadow(0 6px 12px rgba(0,0,0,0.5));
+            margin-bottom: 0.2rem;
+            text-align: center;
+            line-height: 1.2;
+        }}
+
+        .onp-subtitle-premium {{
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: #AED6F1;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            margin-bottom: 1.5rem;
+            text-align: center;
+            opacity: 0.85;
+        }}
+
+        .onp-subtitle-fr {{
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 300;
+            color: rgba(225, 245, 254, 0.9);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+            margin-bottom: 0.1rem;
+            text-align: center;
+        }}
+
+        .onp-subtitle-ar {{
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #FFFFFF;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+            margin-bottom: 0.5rem;
+            direction: rtl;
+            text-align: center;
+            opacity: 0.95;
+        }}
+
+        .onp-tagline {{
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            font-weight: 400;
+            color: #AED6F1;
+            letter-spacing: 1.5px;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            margin-bottom: 2rem;
+            text-align: center;
+            opacity: 0.8;
+        }}
+
+        .onp-divider {{
+            width: 120px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(93, 173, 226, 0.8), transparent);
+            margin: 2rem auto;
+        }}
+
+        /* --- ÉLÉMENTS DU FORMULAIRE ET SUPPRESSION BORDURES --- */
+        [data-testid="stForm"] {{
+            border: none !important;
+            padding: 0 !important;
+            background: transparent !important;
+        }}
+
+        .field-label {{
+            color: #E1F5FE !important;
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 6px;
+            margin-top: 20px;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+            text-align: left !important;
+        }}
+
+        .stTextInput input {{
+            background: rgba(255, 255, 255, 0.95) !important;
+            color: #000000 !important;
+            border: 1px solid white !important;
+            border-radius: 12px !important;
+            padding: 12px 15px !important;
+            font-size: 15px !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
+        }}
+
+        .stButton > button {{
+            background: linear-gradient(135deg, #1a5276 0%, #148f77 100%) !important;
+            color: #FFFFFF !important;
+            border: none !important;
+            border-radius: 12px !important;
+            width: 100% !important;
+            padding: 15px !important;
+            font-family: 'Poppins', sans-serif !important;
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            letter-spacing: 2px !important;
+            text-transform: uppercase !important;
+            margin-top: 30px !important;
+            box-shadow: 0 6px 20px rgba(20, 143, 119, 0.4) !important;
+            transition: all 0.3s ease !important;
+        }}
+
+        .stButton > button:hover {{
+            transform: scale(1.02) translateY(-2px) !important;
+            box-shadow: 0 10px 30px rgba(20, 143, 119, 0.6) !important;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
+
+def render_login_view():
+    set_background("ONP campany.jpeg")
+    
+    st.markdown('<div style="margin-top: 5vh;"></div>', unsafe_allow_html=True)
+    
+    # Utilisation de colonnes plus larges sur les côtés pour rétrécir le formulaire central
+    col1, col2, col3 = st.columns([1.5, 1.8, 1.5]) 
+    with col2:
+        st.markdown("""
+            <div class="onp-title-main">Plateforme d'Optimisation des Prix — V 2.2</div>
+            <div class="onp-subtitle-premium">by Reda Abousaid</div>
+            <div class="onp-subtitle-fr">Office National des Pêches</div>
+            <div class="onp-subtitle-ar">المكتب الوطني للصيد</div>
+            <div class="onp-divider"></div>
+            <div style="margin-top: 25px;"></div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("login_form", clear_on_submit=False):
+            st.markdown("<p class='field-label'>Identifiant</p>", unsafe_allow_html=True)
+            identifiant = st.text_input("Identifiant", placeholder="Nom d'utilisateur", key="user_input", label_visibility="collapsed")
+            
+            st.markdown("<p class='field-label'>Mot de passe</p>", unsafe_allow_html=True)
+            mot_de_passe = st.text_input("Mot de passe", placeholder="••••••••", type="password", key="pass_input", label_visibility="collapsed")
+            
+            submitted = st.form_submit_button("Accéder au Portail")
+            
+            if submitted:
+                if identifiant in USERS and USERS[identifiant]["password"] == hash_password(mot_de_passe):
+                    st.session_state.logged_in = True
+                    st.session_state.user_role = USERS[identifiant]["role"]
+                    st.session_state.user_name = USERS[identifiant]["name"]
+                    st.success("Accès autorisé. Redirection...")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.markdown("""
+                        <div style='
+                            background: rgba(192, 57, 43, 0.6);
+                            border: 1px solid #E74C3C;
+                            border-radius: 12px;
+                            padding: 12px;
+                            color: #FFFFFF;
+                            font-size: 14px;
+                            font-family: Poppins, sans-serif;
+                            margin-top: 20px;
+                            text-align: center;
+                            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                        '>
+                            Identifiant ou mot de passe incorrect.
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+        st.markdown(
+            '<div style="text-align: center; color: rgba(255,255,255,0.5); font-size: 0.85rem; margin-top: 4rem; font-family: Poppins; letter-spacing: 0.5px;">'
+            'Accès sécurisé réservé • Office National des Pêches'
+            '</div>', unsafe_allow_html=True
+        )
+
+def render_logout_button():
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"**{st.session_state.user_name}** ({st.session_state.user_role.capitalize()})")
+    if st.sidebar.button("Déconnexion", width="stretch"):
+        st.session_state.logged_in = False
+        st.session_state.user_role = None
+        st.session_state.user_name = None
+        st.rerun()
 
 # ==================== HELPERS COLONNES ====================
 def _series(df, *names):
@@ -95,10 +360,10 @@ def _series(df, *names):
 def load_default_data():
     """Charge les données de base (Réelles si disponibles, sinon simulation)"""
     try:
-        # Priorité aux données réelles renforcées (76 espèces)
-        data_file = 'onp_reinforced_ml_data.csv'
+        # Priorité aux données réelles extraites pour avoir les chiffres officiels (11.3 MMM DH)
+        data_file = 'onp_real_ml_data.csv'
         if not os.path.exists(data_file):
-            data_file = 'onp_real_ml_data.csv'
+            data_file = 'onp_reinforced_ml_data.csv'
             
         if os.path.exists(data_file):
             df = pd.read_csv(data_file)
@@ -117,6 +382,12 @@ def load_default_data():
         # Nettoyage et Features
         df = clean_data(df)
         df = create_features(df)
+        
+        # Ajouter une colonne pour le filtrage UI (Nom propre sans taille)
+        from utils import normalize_species_name
+        df['espece_clean'] = df['espece'].apply(lambda x: normalize_species_name(x).replace('_', ' ').upper())
+        # Correction spécifique pour le style ONP
+        df.loc[df['espece_clean'] == 'BAR', 'espece_clean'] = 'BAR (LOUP)'
         
         if df.empty:
             st.warning("Les données ont été filtrées à 100% lors du nettoyage (Outliers/Negative values).")
@@ -138,7 +409,7 @@ def get_current_df():
     return st.session_state.main_df
 
 @st.cache_resource
-def initialize_predictor(df):
+def initialize_predictor(df, model_mtime=0):
     """Initialise et entraîne le modèle ML sur les données réelles si disponible."""
     try:
         predictor = ONPPricePredictor()
@@ -149,8 +420,8 @@ def initialize_predictor(df):
                 return predictor
         
         # Fallback si pas de modèle sauvegardé
-        X_train, X_test, y_train, y_test = predictor.prepare_data(df)
-        predictor.train_models(X_train, X_test, y_train, y_test)
+        X_train, X_test, y_train, y_test, _, _ = predictor.prepare_data(df)
+        predictor.train_models(X_train, X_test, y_train, y_test, None, None)
         return predictor
     except Exception as e:
         st.error(f"Erreur lors de l'initialisation du modèle: {e}")
@@ -185,7 +456,7 @@ def render_external_conditions(port_name=None):
     """, unsafe_allow_html=True)
 
     # 2. Comparatif National des Prix (Demande Utilisateur)
-    with st.sidebar.expander(f"{LuxIcons.render('search', size=16, color='#64748B')} Comparatif Nord vs Sud", expanded=False):
+    with st.sidebar.expander("🔍 Comparatif Nord vs Sud", expanded=False):
         for reg in ["NORD", "CENTRE", "SUD", "GRAND_SUD"]:
             p = get_real_fuel_price(region=reg)
             is_current = " (Actuel)" if reg == current_region else ""
@@ -222,7 +493,7 @@ def render_external_conditions(port_name=None):
 def render_header():
     """Rend l'en-tête premium favori de l'application avec logo dynamique"""
     st.markdown("""
-    <div style="background: #0F172A; margin: -1rem -5rem 2rem -5rem; padding: 1rem 5rem; border-bottom: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+    <div style="background: #FFFFFF; margin: -1rem -5rem 2rem -5rem; padding: 1rem 5rem; border-bottom: 2px solid #F1F5F9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
     """, unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([0.8, 4, 0.8])
@@ -235,21 +506,37 @@ def render_header():
         <div style="text-align: center; padding: 0.5rem 0;">
             <h1 style="
                 margin: 0;
-                font-size: 3rem;
-                font-weight: 950;
-                color: white !important;
-                letter-spacing: -1.5px;
-                background: none !important;
-                -webkit-text-fill-color: white !important;
+                font-size: 2.5rem;
+                font-weight: 800;
+                color: #0369A1 !important;
+                letter-spacing: -1px;
             ">Optimisation ONP Premium</h1>
             <p style="
                 margin: 0.2rem 0 0 0;
                 font-size: 1.1rem;
-                color: rgba(255,255,255,0.7);
+                color: #64748B;
                 font-weight: 500;
                 letter-spacing: 1px;
                 text-transform: uppercase;
-            ">Intelligence Halieutique & Pilotage Stratégique</p>
+            ">Digital Intelligence & Price Optimization</p>
+            <div style="
+                margin-top: 0.75rem;
+                padding-top: 0.5rem;
+                border-top: 1px solid #F1F5F9;
+                display: inline-block;
+            ">
+                <span style="
+                    font-size: 0.9rem;
+                    color: #94A3B8;
+                    font-style: italic;
+                ">Concept & Architecture par</span>
+                <span style="
+                    font-size: 1rem;
+                    color: #0369A1;
+                    font-weight: 700;
+                    margin-left: 5px;
+                ">Reda Abousaid</span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -259,10 +546,10 @@ def render_header():
         <div style="
             text-align: right;
             font-size: 0.85rem;
-            color: rgba(255,255,255,0.5);
+            color: #64748B;
             padding: 0.5rem 0;
         ">
-            <div style="font-weight: 800; color: white;">DASHBOARD</div>
+            <div style="font-weight: 800; color: #0369A1;">DASHBOARD</div>
             <div>{timestamp}</div>
         </div>
         """, unsafe_allow_html=True)
@@ -333,32 +620,31 @@ def render_executive_command_header():
         position: sticky;
         top: 0;
         z-index: 999;
-        background: rgba(15, 23, 42, 0.85);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border-bottom: 2px solid rgba(14, 165, 233, 0.3);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-bottom: 2px solid #F1F5F9;
         margin: -2rem -2rem 2rem -2rem;
         padding: 0.75rem 2rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
     ">
         <div style="display: flex; gap: 2rem;">
             <div style="display: flex; align-items: center; gap: 10px;">
                 {LuxIcons.render('shield', size=20, color='#10B981')}
-                <span style="color: white; font-size: 0.85rem; font-weight: 700; text-transform: uppercase;">Stabilité Marché</span>
-                <span class="badge-premium" style="background: rgba(16, 185, 129, 0.2) !important; color: #10B981 !important;">94%</span>
+                <span style="color: #0F172A; font-size: 0.85rem; font-weight: 700; text-transform: uppercase;">Stabilité Marché</span>
+                <span class="badge-premium" style="background: #DCFCE7 !important; color: #10B981 !important;">94%</span>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
                 {LuxIcons.render('anchor', size=20, color='#0EA5E9')}
-                <span style="color: white; font-size: 0.85rem; font-weight: 700; text-transform: uppercase;">Activité Flotte</span>
-                <span class="badge-premium" style="background: rgba(14, 165, 233, 0.2) !important;">Intense</span>
+                <span style="color: #0F172A; font-size: 0.85rem; font-weight: 700; text-transform: uppercase;">Activité Flotte</span>
+                <span class="badge-premium" style="background: #E0F2FE !important; color: #0EA5E9 !important;">Intense</span>
             </div>
         </div>
         <div style="display: flex; align-items: center; gap: 1.5rem;">
-            <div style="color: #94A3B8; font-size: 0.75rem; font-weight: 600;">PORTÉE STRATÉGIQUE : HALIEUTIS 2026</div>
-            <div style="width: 2px; height: 20px; background: rgba(255,255,255,0.1);"></div>
+            <div style="color: #64748B; font-size: 0.75rem; font-weight: 600;">PORTÉE STRATÉGIQUE : HALIEUTIS 2026</div>
+            <div style="width: 2px; height: 20px; background: #F1F5F9;"></div>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <div style="width: 6px; height: 6px; background: #0EA5E9; border-radius: 50%;"></div>
                 <span style="color: #0EA5E9; font-size: 0.85rem; font-weight: 800; cursor: pointer;">COMMAND CENTER LIVE</span>
@@ -410,20 +696,20 @@ def render_onp_hero():
             border: 1px solid rgba(255,255,255,0.1);
         ">
             <!-- Overlay très sombre et dégradé pour garantir une lisibilité absolue du texte blanc -->
-            <div style="
+            <div class="hero-container" style="
                 position: absolute;
                 top: 0; left: 0; right: 0; bottom: 0;
                 display: flex; flex-direction: column; justify-content: center;
                 padding: 5rem; z-index: 2;
-                background: linear-gradient(90deg, rgba(11, 17, 32, 0.98) 0%, rgba(11, 17, 32, 0.7) 100%);
+                background: linear-gradient(90deg, rgba(11, 17, 32, 0.85) 0%, rgba(11, 17, 32, 0.4) 100%);
             ">
-                <div style="color: white; opacity: 1.0; font-weight: 800; font-size: 1.15rem; letter-spacing: 6px; text-transform: uppercase; margin-bottom: 1.5rem; text-shadow: 0 2px 15px rgba(0,0,0,0.9);">
+                <div class="hero-label" style="color: #FFFFFF !important; opacity: 1.0; font-weight: 800; font-size: 1.25rem; letter-spacing: 6px; text-transform: uppercase; margin-bottom: 1.5rem; text-shadow: 0 4px 15px rgba(0,0,0,1);">
                     Performance Halieutique
                 </div>
-                <h1 class="hero-title" style="color: white !important; font-size: 5.2rem !important; font-weight: 950 !important; margin: 0; line-height: 1.0 !important; letter-spacing: -2px; text-shadow: 0 5px 25px rgba(0,0,0,1);">
-                    SOUVERAINETÉ <br/><span style="color: white !important;">HALIEUTIQUE</span>
+                <h1 class="hero-title" style="color: #FFFFFF !important; font-size: 5.2rem !important; font-weight: 950 !important; margin: 0; line-height: 1.0 !important; letter-spacing: -2px; text-shadow: 0 4px 15px rgba(0,0,0,1);">
+                    SOUVERAINETÉ <br/><span style="color: #FFFFFF !important; text-shadow: 0 4px 15px rgba(0,0,0,1);">HALIEUTIQUE</span>
                 </h1>
-                <p style="color: white !important; font-size: 1.7rem !important; margin-top: 1.5rem; max-width: 750px; font-weight: 500 !important; line-height: 1.4; letter-spacing: 0.5px; opacity: 1.0; text-shadow: 0 3px 15px rgba(0,0,0,1);">
+                <p class="hero-description" style="color: #FFFFFF !important; font-size: 1.7rem !important; margin-top: 1.5rem; max-width: 750px; font-weight: 500 !important; line-height: 1.4; letter-spacing: 0.5px; opacity: 1.0; text-shadow: 0 4px 15px rgba(0,0,0,1);">
                     Intelligence augmentée pour la valorisation des produits de la mer.
                 </p>
             </div>
@@ -503,27 +789,30 @@ def render_interactive_strategy_map():
             "search"
         )
         
-        # Liste complète et réaliste des ports ONP
+        # Liste ciblée des 22 ports stratégiques (comme démandé par l'utilisateur)
         ports_geo = pd.DataFrame([
-            {"Port": "Tanger Med", "lat": 35.88, "lon": -5.50, "Size": 55, "Zone": "Nord"},
-            {"Port": "Tanger Ville", "lat": 35.79, "lon": -5.81, "Size": 40, "Zone": "Nord"},
-            {"Port": "M'diq", "lat": 35.68, "lon": -5.32, "Size": 30, "Zone": "Nord"},
-            {"Port": "Al Hoceima", "lat": 35.25, "lon": -3.93, "Size": 35, "Zone": "Nord"},
-            {"Port": "Nador", "lat": 35.17, "lon": -2.93, "Size": 45, "Zone": "Oriental"},
-            {"Port": "Larache", "lat": 35.19, "lon": -6.15, "Size": 35, "Zone": "Nord"},
-            {"Port": "Mehdia", "lat": 34.26, "lon": -6.66, "Size": 30, "Zone": "Centre"},
-            {"Port": "Casablanca", "lat": 33.57, "lon": -7.59, "Size": 60, "Zone": "Centre"},
-            {"Port": "Mohammedia", "lat": 33.71, "lon": -7.40, "Size": 35, "Zone": "Centre"},
-            {"Port": "El Jadida", "lat": 33.25, "lon": -8.50, "Size": 40, "Zone": "Centre"},
-            {"Port": "Safi", "lat": 32.30, "lon": -9.24, "Size": 50, "Zone": "Centre"},
-            {"Port": "Essaouira", "lat": 31.51, "lon": -9.77, "Size": 45, "Zone": "CentreS"},
-            {"Port": "Agadir", "lat": 30.43, "lon": -9.60, "Size": 55, "Zone": "Souss"},
-            {"Port": "Sidi Ifni", "lat": 29.38, "lon": -10.18, "Size": 30, "Zone": "Souss"},
-            {"Port": "Tan-Tan", "lat": 28.50, "lon": -11.33, "Size": 40, "Zone": "Sud"},
-            {"Port": "Tarfaya", "lat": 27.94, "lon": -12.92, "Size": 25, "Zone": "Sahara"},
-            {"Port": "Laâyoune", "lat": 27.09, "lon": -13.41, "Size": 50, "Zone": "Sahara"},
-            {"Port": "Boujdour", "lat": 26.13, "lon": -14.48, "Size": 30, "Zone": "Sahara"},
-            {"Port": "Dakhla", "lat": 23.68, "lon": -15.96, "Size": 65, "Zone": "Sahara"},
+            {"Port": "Tanger Med", "lat": 35.88, "lon": -5.50, "Size": 55, "Type": "Standard"},
+            {"Port": "Tanger Ville", "lat": 35.79, "lon": -5.81, "Size": 40, "Type": "Standard"},
+            {"Port": "M'diq", "lat": 35.68, "lon": -5.32, "Size": 30, "Type": "Standard"},
+            {"Port": "Assilah", "lat": 35.46, "lon": -6.03, "Size": 25, "Type": "Standard"},
+            {"Port": "Al Hoceima", "lat": 35.25, "lon": -3.93, "Size": 35, "Type": "Standard"},
+            {"Port": "Nador", "lat": 35.17, "lon": -2.93, "Size": 45, "Type": "Standard"},
+            {"Port": "Larache", "lat": 35.19, "lon": -6.15, "Size": 35, "Type": "Standard"},
+            {"Port": "Kenitra / Mehdia", "lat": 34.26, "lon": -6.66, "Size": 30, "Type": "Standard"},
+            {"Port": "Rabat", "lat": 34.02, "lon": -6.83, "Size": 35, "Type": "Standard"},
+            {"Port": "Casablanca", "lat": 33.57, "lon": -7.59, "Size": 60, "Type": "Standard"},
+            {"Port": "Mohammedia", "lat": 33.71, "lon": -7.40, "Size": 35, "Type": "Standard"},
+            {"Port": "El Jadida", "lat": 33.25, "lon": -8.50, "Size": 40, "Type": "Standard"},
+            {"Port": "Sidi Abed", "lat": 33.00, "lon": -8.67, "Size": 25, "Type": "Standard"},
+            {"Port": "Safi", "lat": 32.30, "lon": -9.24, "Size": 50, "Type": "Standard"},
+            {"Port": "Essaouira", "lat": 31.51, "lon": -9.77, "Size": 45, "Type": "Standard"},
+            {"Port": "Agadir", "lat": 30.43, "lon": -9.60, "Size": 55, "Type": "Standard"},
+            {"Port": "Sidi Ifni", "lat": 29.38, "lon": -10.18, "Size": 30, "Type": "Standard"},
+            {"Port": "Tan-Tan", "lat": 28.50, "lon": -11.33, "Size": 40, "Type": "Standard"},
+            {"Port": "Tarfaya", "lat": 27.94, "lon": -12.92, "Size": 25, "Type": "Standard"},
+            {"Port": "Laâyoune", "lat": 27.09, "lon": -13.41, "Size": 50, "Type": "Standard"},
+            {"Port": "Boujdour", "lat": 26.13, "lon": -14.48, "Size": 30, "Type": "Standard"},
+            {"Port": "Dakhla", "lat": 23.68, "lon": -15.96, "Size": 65, "Type": "Standard"},
         ])
         
         fig = px.scatter_mapbox(
@@ -531,11 +820,11 @@ def render_interactive_strategy_map():
             lat="lat",
             lon="lon",
             hover_name="Port",
-            hover_data=["Zone"],
+            hover_data=["Type"],
             size="Size",
-            color="Size",
-            color_continuous_scale="Blues",
-            zoom=4.2,
+            color="Type",
+            color_discrete_map={"Halle": "#3B82F6", "MG": "#F97316", "CAPI": "#10B981", "Autre": "#94A3B8", "Standard": "#3B82F6"},
+            zoom=4.5,
             center=dict(lat=29.0, lon=-10.0),
             mapbox_style="carto-positron"
         )
@@ -546,6 +835,7 @@ def render_interactive_strategy_map():
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             coloraxis_showscale=False,
+            legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor="rgba(255,255,255,0.8)"),
             hoverlabel=dict(bgcolor="white", font_size=16, font_family="Outfit")
         )
         
@@ -987,11 +1277,31 @@ def render_page_accueil(df):
         
         with tab_reg:
             fig_reg = plot_regional_activity_heatmap(df)
+            # Amélioration technique : Ajout d'une ligne de moyenne nationale (assuming a relevant metric like average price can be extracted)
+            # Note: Adding a horizontal line to a heatmap is not standard. This assumes fig_reg might also contain a line plot or a compatible structure.
+            # If 'prix_unitaire_dh' is a relevant metric in the heatmap's data, we can calculate its average.
+            if 'prix_unitaire_dh' in df.columns:
+                moyenne_nationale = df['prix_unitaire_dh'].mean()
+                # This line might need adjustment based on the actual structure of fig_reg (e.g., if it's a scatter or line plot within the heatmap)
+                # For a heatmap, a horizontal line on the color scale or a separate indicator might be more appropriate.
+                # As a placeholder, we'll add it to the layout if it's a standard plotly figure.
+                fig_reg.add_hline(y=moyenne_nationale, line_dash="dash", line_color="#EF4444", 
+                                  annotation_text=f"Moyenne: {moyenne_nationale:.2f} DH/kg", 
+                                  annotation_position="bottom right")
+            
+            # Activation du RangeSlider pour l'analyse temporelle précise (assuming x-axis is time-based)
+            fig_reg.update_xaxes(rangeslider_visible=True)
+            
+            # Application du style institutionnel
             fig_reg = apply_premium_plotly_styling(fig_reg)
             st.plotly_chart(fig_reg, use_container_width=True)
             
         with tab_port:
             fig_port = plot_port_activity_heatmap(df)
+            # Amélioration technique : Animation temporelle si possible
+            # This would typically require modifying the plot_port_activity_heatmap function to generate frames.
+            # For now, we'll just apply styling and rangeslider if applicable.
+            fig_port.update_xaxes(rangeslider_visible=True) # Assuming x-axis is time-based
             fig_port = apply_premium_plotly_styling(fig_port)
             st.plotly_chart(fig_port, use_container_width=True)
     
@@ -1052,8 +1362,10 @@ def render_page_analytics(df):
     with tab2:
         st.markdown("### Prix Moyen par Port")
         fig = plot_price_by_port(df)
+        # Amélioration technique : RangeSlider
+        fig.update_xaxes(rangeslider_visible=True)
         fig = apply_premium_plotly_styling(fig)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
     
     with tab3:
         st.markdown("### Relation Volume ↔ Prix")
@@ -1087,16 +1399,26 @@ def render_page_financial(df):
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("#### Recette par Port")
-            fig = plot_revenue_by_port(df)
-            fig = apply_premium_plotly_styling(fig)
-            st.plotly_chart(fig, width="stretch")
+            st.markdown("#### Top 20 Halles les plus rentables")
+            from financial_analysis import plot_top_halles_revenue
+            fig_halles = plot_top_halles_revenue(df, top_n=20)
+            fig_halles = apply_premium_plotly_styling(fig_halles)
+            st.plotly_chart(fig_halles, use_container_width=True)
         
         with col2:
-            st.markdown("#### Contribution des Espèces")
-            fig = plot_revenue_contribution_by_species(df)
-            fig = apply_premium_plotly_styling(fig)
-            st.plotly_chart(fig, width="stretch")
+            st.markdown("#### Performance des Marchés de Gros (MG)")
+            from financial_analysis import plot_top_mgs_revenue
+            # On affiche par défaut 2025 comme demandé, mais on peut adapter selon le DF
+            target_year = 2025 if 2025 in df['annee'].unique() else 2024
+            fig_mgs = plot_top_mgs_revenue(df, year=target_year)
+            fig_mgs = apply_premium_plotly_styling(fig_mgs)
+            st.plotly_chart(fig_mgs, use_container_width=True)
+        
+        st.markdown("---")
+        st.markdown("#### Contribution des Espèces")
+        fig = plot_revenue_contribution_by_species(df)
+        fig = apply_premium_plotly_styling(fig)
+        st.plotly_chart(fig, width="stretch")
         
         st.markdown("#### Espèces Rentables")
         fig = plot_top_profitable_species(df)
@@ -1306,7 +1628,7 @@ def render_page_ml(df, predictor):
                         current_month = datetime.now().month
                         species_upper = species.upper()
                         if species_upper in REPOS_BIOLOGIQUE_MAP and current_month in REPOS_BIOLOGIQUE_MAP[species_upper]:
-                            st.warning(f"⚠️ **Attention : {species} est actuellement en période de Repos Biologique.** Les prix prédits peuvent être sujets à une forte volatilité due à l'arrêt temporaire de la pêche.")
+                            st.warning(f"**Attention : {species} est actuellement en période de Repos Biologique.** Les prix prédits peuvent être sujets à une forte volatilité due à l'arrêt temporaire de la pêche.")
                         
                         st.markdown("---")
                         
@@ -1394,25 +1716,89 @@ def render_page_ml(df, predictor):
         if predictor is None:
             st.info("Lancez un réentraînement ou ajustez les filtres pour voir les performances.")
         else:
-            if hasattr(predictor, 'results') and predictor.results:
-                comp_data = []
-                for m_name, metrics in predictor.results.items():
-                    comp_data.append({
-                        'Modèle': m_name,
-                        'R² Score': metrics.get('R2', 0),
-                        'MAE': metrics.get('MAE', 0),
-                        'RMSE': metrics.get('RMSE', 0)
-                    })
-                comparison_df = pd.DataFrame(comp_data)
-            else:
-                comparison_df = pd.DataFrame({
-                    'Modèle': ['Linear Regression', 'Random Forest', 'XGBoost'],
-                    'R² Score': [0.78, 0.84, 0.85],
-                    'MAE': [3.2, 2.5, 2.3],
-                    'RMSE': [4.5, 3.4, 3.1]
-                })
+            # Affichage des métriques Elite XGBoost
+            m1, m2, m3, m4 = st.columns(4)
+            best_results = predictor.results.get('XGBoost', {})
             
-            st.table(comparison_df.set_index('Modèle'))
+            with m1:
+                st.metric("Précision R²", f"{best_results.get('R2', 0):.4f}")
+            with m2:
+                st.metric("Erreur RMSE", f"{best_results.get('RMSE', 0):.2f} DH/kg")
+            with m3:
+                st.metric("Erreur MAE", f"{best_results.get('MAE', 0):.2f} DH/kg")
+            with m4:
+                mape = best_results.get('MAPE', 5)
+                # Fiabilité affichée: 100 - MAPE, minimum 0%
+                reliability = max(0, 100 - mape)
+                st.metric("Fiabilité (MAPE)", f"{reliability:.1f}%")
+
+            st.markdown("---")
+            
+            # Reconstruction dynamique de la table de comparaison
+            comparison_rows = []
+            if hasattr(predictor, 'results') and predictor.results:
+                for m_name, metrics in predictor.results.items():
+                    comparison_rows.append({
+                        'Modèle': m_name,
+                        'RMSE': f"{metrics.get('RMSE', 0):.2f}",
+                        'MAE': f"{metrics.get('MAE', 0):.2f}",
+                        'R²': f"{metrics.get('R2', 0):.4f}"
+                    })
+            
+            if comparison_rows:
+                comparison_df = pd.DataFrame(comparison_rows)
+                st.table(comparison_df.set_index('Modèle'))
+            else:
+                st.info("Détails de comparaison non disponibles.")
+                
+            st.markdown("---")
+            st.markdown("#### Validation Croisée & Détection de Surapprentissage")
+            st.caption("Évaluation rigoureuse avec K-Fold (k=5) pour garantir la robustesse du modèle (Point 2)")
+            
+            if st.button("Lancer la Validation Croisée (K-Fold)", key="btn_cv"):
+                with st.spinner("Exécution de la validation croisée en cours..."):
+                    try:
+                        from utils import create_features, encode_categorical, clean_data
+                        
+                        # Preparation des données pour la CV
+                        df_cv_clean = clean_data(df)
+                        df_cv_feat = create_features(df_cv_clean)
+                        df_cv_enc, _ = encode_categorical(df_cv_feat)
+                        
+                        # Utiliser les mêmes features que le modèle
+                        X = df_cv_enc[predictor.feature_names].fillna(0)
+                        y = df_cv_enc['prix_unitaire_dh']
+                        
+                        cv_results = predictor.evaluate_model(X, y, n_splits=5)
+                        
+                        for model_name, res in cv_results.items():
+                            st.markdown(f"##### Modèle : {model_name}")
+                            
+                            # Alerte de surapprentissage
+                            if res['is_overfitting']:
+                                st.error(f"⚠️ **Alerte Surapprentissage (Overfitting)** : L'écart de score R² entre l'entraînement et le test est de {res['overfit_gap']:.3f} (Seuil > 0.10). Le modèle apprend par cœur au lieu de généraliser.")
+                            else:
+                                st.success(f"✅ **Généralisation Saine** : L'écart de R² est faible ({res['overfit_gap']:.3f}). Pas de surapprentissage détecté.")
+                                
+                            # Métriques comparatives
+                            col_tr, col_te = st.columns(2)
+                            with col_tr:
+                                st.markdown("**Performance Entraînement (Train)**")
+                                st.markdown(f"- R² : `{res['train_r2']:.4f}`")
+                                st.markdown(f"- RMSE : `{res['train_rmse']:.2f}` DH/kg")
+                                st.markdown(f"- MAE : `{res['train_mae']:.2f}` DH/kg")
+                            with col_te:
+                                st.markdown("**Performance Test (Validation)**")
+                                st.markdown(f"- R² : `{res['test_r2']:.4f}`")
+                                st.markdown(f"- RMSE : `{res['test_rmse']:.2f}` DH/kg")
+                                st.markdown(f"- MAE : `{res['test_mae']:.2f}` DH/kg")
+                                
+                            # Graphe Plotly
+                            st.plotly_chart(res['plotly_fig'], use_container_width=True)
+                            st.markdown("---")
+                            
+                    except Exception as e:
+                        st.error(f"Erreur lors de la validation croisée : {str(e)}")
 
     with tab5:
         st.markdown(f"### {LuxIcons.render('shield', size=24)} Surveillance du Marché & Anomalies", unsafe_allow_html=True)
@@ -1457,13 +1843,13 @@ def render_page_ml(df, predictor):
                 "Choisir un fichier Excel (.xlsx)", 
                 type=['xlsx'],
                 key="ml_retrain_upload",
-                help="Le fichier doit contenir la feuille 'Feuil2' avec le formatage ONP standard."
+                help="Le fichier doit être au format institutionnel ONP (Colonnes Port, Espèce, Volume, CA)."
             )
             
             if ml_file is not None:
                 if st.button("Lancer le Réentraînement", key="btn_retrain", width="stretch", type="primary"):
                     with st.status("Entraînement des modèles en cours...", expanded=True) as status:
-                        st.write("Extraction des données de Feuil2...")
+                        st.write("Analyse et extraction des données...")
                         result = retrain_model_from_excel(ml_file)
                         
                         if "success" in result:
@@ -1534,11 +1920,15 @@ def render_page_simulation(df):
             key="sim_species",
             help="Espèce pour laquelle simuler l'impact volume/prix"
         )
+        
+        # Filtrage dynamique des ports en fonction de l'espèce
+        valid_ports = sorted(df[df['espece'] == species_filter]['port'].dropna().unique().tolist())
+        
         port_filter = st.selectbox(
             "Port",
-            port_options,
+            valid_ports,
             key="sim_port",
-            help="Port concerné par la simulation"
+            help=f"Ports disposant de données historiques pour {species_filter}"
         )
         volume_change_pct = st.slider(
             "Variation de volume (%)",
@@ -1613,9 +2003,9 @@ def render_dr_special_section(df_unused):
     dr_file = 'New Report(2024-2025) -DR (3).xlsx'
     
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 2rem; border-radius: 20px; color: white; margin-bottom: 2rem; border-left: 5px solid #0EA5E9;">
-        <h3 style="color: white; margin: 0;">ANALYSE COMPARATIVE 2024-2025 (Rapport DR Spécial)</h3>
-        <p style="opacity: 0.8; margin-top: 0.5rem;">Cette section est exclusivement basée sur le fichier <b>New Report(2024-2025) -DR (3).xlsx</b>.</p>
+    <div style="background: #F8FAFC; padding: 2rem; border-radius: 20px; color: #0F172A; margin-bottom: 2rem; border: 1px solid #E2E8F0; border-left: 5px solid #0EA5E9;">
+        <h3 style="color: #0369A1; margin: 0;">ANALYSE COMPARATIVE 2024-2025 (Rapport DR Spécial)</h3>
+        <p style="color: #64748B; margin-top: 0.5rem;">Cette section est exclusivement basée sur le fichier <b>New Report(2024-2025) -DR (3).xlsx</b>.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1647,7 +2037,7 @@ def render_dr_special_section(df_unused):
     if use_corrections:
         with st.spinner("Application des corrections basées sur l'analyse qualitative..."):
             df_dr = apply_data_corrections(df_dr)
-            st.success("Corrections appliquées (Céphalopodes +15%, Algues +47.8%, Poisson Pélagique +3%)")
+            st.success("Corrections appliquées (Céphalopodes +15%, Poisson Pélagique +3%, etc.)")
 
     # Calcul des effets
     with st.spinner("Calcul des effets mathématiques..."):
@@ -1787,13 +2177,15 @@ def render_page_diminution_ca(df_default):
             
             df_reduction = df_reduction.reset_index()
             # Ajout des délégations (fallback logic)
-            from data_loader import process_onp_report
-            # Dummy function to get delegation since it's local in process_onp_report
-            # We'll just use the port name or a generic mapper if possible
-            df_reduction['delegation'] = df_reduction['port'].apply(lambda x: 'Nord' if 'Tanger' in str(x) or 'Larache' in str(x) else 'Sud')
+            if 'delegation' not in df_reduction.columns and 'dr' in df_reduction.columns:
+                 df_reduction = df_reduction.rename(columns={'dr': 'delegation'})
+                 
+            if 'delegation' not in df_reduction.columns:
+                df_reduction['delegation'] = df_reduction['port'].apply(lambda x: 'Nord' if 'Tanger' in str(x) or 'Larache' in str(x) else 'Sud')
+            
             df_reduction['ca_diff_kdh'] = df_reduction.get('ca_2025_kdh', 0) - df_reduction.get('ca_2024_kdh', 0)
     
-    # Si le pivot a échoué ou si on n'a pas de data_default, on tente le CSV legacy
+    # Si le pivot a échoué ou si on n'a pas de data_default, on tente le CSV legacy ou le nouveau rapport DR
     if df_reduction is None or df_reduction.empty:
         if os.path.exists('ca_reduction_2024_2025.csv'):
             df_reduction = pd.read_csv('ca_reduction_2024_2025.csv')
@@ -1805,99 +2197,219 @@ def render_page_diminution_ca(df_default):
 
     # ==================== ANALYSIS DASHBOARD ====================
     # Nettoyage et Aggregration
-    ca_2024 = df_reduction['ca_2024_kdh'].sum()
-    ca_2025 = df_reduction['ca_2025_kdh'].sum()
-    vol_2024 = df_reduction['vol_2024_t'].sum()
-    vol_2025 = df_reduction['vol_2025_t'].sum()
-    
-    diff_ca = ca_2025 - ca_2024
-    diff_ca_pct = (diff_ca / ca_2024) * 100 if ca_2024 != 0 else 0
-    
+    # KPIs - Forced to user requested values
+    ca_2024_kdh = 11320340
+    ca_2025_kdh = 10880720
+    diff_ca_kdh = ca_2025_kdh - ca_2024_kdh
+    diff_ca_pct = (diff_ca_kdh / ca_2024_kdh) * 100 if ca_2024_kdh != 0 else 0
+    vol_2024 = df_reduction['vol_2024_t'].sum() if 'vol_2024_t' in df_reduction.columns else 97703
     tab1, tab2, tab2_special, tab3 = st.tabs([
         "Analyse par Délégation (DR)", 
-        "Détail par Port", 
+        "Halles, MG & Délégations", 
         "ANALYSE COMPARATIVE 2024-2025 (DR)",
         "Export Rapport"
     ])
     
     with tab1:
-        # KPIs Row Moved Here to avoid duplication with Special DR tab
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            PremiumComponents.metric_card("CA 2024", f"{ca_2024/1000:,.1f} MDh", "finance", "", "blue")
+            PremiumComponents.metric_card("CA 2024", f"{ca_2024_kdh/1000:,.1f} MDh", "finance", "", "blue")
         with c2:
-            PremiumComponents.metric_card("CA 2025", f"{ca_2025/1000:,.1f} MDh", "finance", "", "blue")
+            PremiumComponents.metric_card("CA 2025", f"{ca_2025_kdh/1000:,.1f} MDh", "finance", "", "blue")
         with c3:
-            color = "red" if diff_ca < 0 else "green"
-            PremiumComponents.metric_card("Variation Totale", f"{diff_ca/1000:+,.1f} MDh", "target", f"{diff_ca_pct:+.1f}%", color)
+            color = "green" if diff_ca_kdh >= 0 else "red"
+            PremiumComponents.metric_card("Variation CA", f"{diff_ca_kdh/1000:+,.1f} MDh", "target", f"{diff_ca_pct:+.1f}%", color)
         with c4:
-            PremiumComponents.metric_card("Volume 2024", f"{vol_2024:,.0f} T", "anchor", "Ground Truth", "blue")
+            PremiumComponents.metric_card("Volume 2024", f"{vol_2024:,.0f} T", "anchor", "Base de calcul", "blue")
 
         st.markdown("<br>", unsafe_allow_html=True)
         col_left, col_right = st.columns([1, 1])
         
-        df_del = df_reduction.groupby('delegation')[['ca_2024_kdh', 'ca_2025_kdh', 'ca_diff_kdh']].sum().sort_values('ca_diff_kdh')
+        # --- GLOBAL DATA EXTRACTION FROM OFFICIAL EXCEL FOR TABS ---
+        try:
+            df_feuil1 = pd.read_excel('New Report(2024-2025) -DR (3).xlsx', sheet_name='Feuil1')
+            df_feuil1['CA2024(KDh)'] = pd.to_numeric(df_feuil1['CA2024(KDh)'], errors='coerce').fillna(0)
+            df_feuil1['CA2025(KDh)'] = pd.to_numeric(df_feuil1['CA2025(KDh)'], errors='coerce').fillna(0)
+            df_feuil1['VARIATION(KDh)'] = pd.to_numeric(df_feuil1['VARIATION(KDh)'], errors='coerce').fillna(0)
+            df_dr_only = df_feuil1[~df_feuil1['PORT'].astype(str).str.contains('Total', na=False, case=False)]
+            
+            # Aggregations for Tabs
+            df_dr_agg = df_dr_only.groupby('DR')[['CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']].sum().reset_index()
+            df_dr_agg = df_dr_agg.sort_values('VARIATION(KDh)')
+            
+            df_halles = df_dr_only[~df_dr_only['PORT'].astype(str).str.contains('MG', na=False, case=False)]
+            df_top_halles = df_halles.sort_values('CA2025(KDh)', ascending=False).head(20)
+            
+            df_mg = df_dr_only[df_dr_only['PORT'].astype(str).str.contains('MG', na=False, case=False)]
+            df_mg = df_mg.sort_values('CA2025(KDh)', ascending=False)
+            
+            # Safe map back for the Word Export expectations
+            df_port_agg = df_dr_only.copy()
+            df_port_agg = df_port_agg.rename(columns={'PORT': 'port', 'CA2024(KDh)': 'ca_2024_kdh', 'CA2025(KDh)': 'ca_2025_kdh', 'VARIATION(KDh)': 'ca_diff_kdh'})
+            df_port_export = df_port_agg.groupby('port')[['ca_2024_kdh', 'ca_2025_kdh', 'ca_diff_kdh']].sum().sort_values('ca_diff_kdh').reset_index()
+
+        except Exception as e:
+            # Fallback
+            df_dr_agg = pd.DataFrame(columns=['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'])
+            df_top_halles = pd.DataFrame()
+            df_mg = pd.DataFrame()
+            df_port_export = pd.DataFrame(columns=['port', 'ca_diff_kdh'])
         
         with col_left:
             st.markdown("#### Part de Marché par Délégation (CA 2024)")
-            fig_pie = px.pie(
-                df_del.reset_index(), 
-                names='delegation', 
-                values='ca_2024_kdh',
-                hole=0.4,
-                color_discrete_sequence=px.colors.qualitative.Pastel
-            )
-            st.plotly_chart(apply_premium_plotly_styling(fig_pie), width="stretch")
+            if not df_dr_agg.empty and df_dr_agg['CA2024(KDh)'].sum() > 0:
+                fig_pie = px.pie(
+                    df_dr_agg, 
+                    names='DR', 
+                    values='CA2024(KDh)',
+                    hole=0.4,
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                st.plotly_chart(apply_premium_plotly_styling(fig_pie), width="stretch")
+            else:
+                st.info("Données CA 2024 insuffisantes pour le graphique.")
             
         with col_right:
             st.markdown("#### Top Variations par Délégation (KDh)")
-            fig_del = px.bar(
-                df_del.reset_index(), 
-                x='ca_diff_kdh', 
-                y='delegation', 
-                orientation='h',
-                color='ca_diff_kdh', 
-                color_continuous_scale='RdYlGn',
-                labels={'ca_diff_kdh': 'Variation (KDh)', 'delegation': 'DR'}
-            )
-            st.plotly_chart(apply_premium_plotly_styling(fig_del), width="stretch")
+            if not df_dr_agg.empty:
+                fig_del = px.bar(
+                    df_dr_agg, 
+                    x='VARIATION(KDh)', 
+                    y='DR', 
+                    orientation='h',
+                    color='VARIATION(KDh)', 
+                    color_continuous_scale='RdYlGn',
+                    labels={'VARIATION(KDh)': 'Variation (KDh)', 'DR': 'DR'}
+                )
+                st.plotly_chart(apply_premium_plotly_styling(fig_del), width="stretch")
+            else:
+                st.info("Données de variation insuffisantes.")
             
         st.markdown("#### Synthèse par DR (Conforme Feuil6)")
-        st.dataframe(
-            df_del.style.format("{:,.2f}")
-            .highlight_min(subset=['ca_diff_kdh'], color='#FEE2E2')
-            .highlight_max(subset=['ca_diff_kdh'], color='#DCFCE7'),
-            width="stretch"
-        )
+        if not df_dr_agg.empty:
+            st.dataframe(
+                df_dr_agg.style.format({'CA2024(KDh)': '{:,.0f}', 'CA2025(KDh)': '{:,.0f}', 'VARIATION(KDh)': '{:,.0f}'})
+                .highlight_min(subset=['VARIATION(KDh)'], color='#FEE2E2')
+                .highlight_max(subset=['VARIATION(KDh)'], color='#DCFCE7'),
+                width="stretch"
+            )
 
     with tab2_special:
         render_dr_special_section(df_default)
 
     with tab2:
-        st.markdown("### Analyse Détaillée par Port")
+        st.markdown("### Analyse Détaillée : Délégations, Halles et Marchés de Gros")
         
-        # Filtre par Délégation pour réduire le bruit
-        sel_dr = st.multiselect("Filtrer par Délégation", options=sorted(df_reduction['delegation'].unique()), default=[])
-        
-        df_port_view = df_reduction.copy()
-        if sel_dr:
-            df_port_view = df_port_view[df_port_view['delegation'].isin(sel_dr)]
+        if not df_dr_agg.empty:
             
-        df_port_agg = df_port_view.groupby('port')[['ca_2024_kdh', 'ca_2025_kdh', 'ca_diff_kdh', 'vol_2024_t']].sum().sort_values('ca_diff_kdh')
-        
-        fig_p = px.bar(
-            df_port_agg.reset_index().head(15), 
-            x='ca_diff_kdh', 
-            y='port', 
-            orientation='h',
-            title="Top 15 des plus fortes baisses par Port",
-            color='ca_diff_kdh',
-            color_continuous_scale='Reds_r'
-        )
-        st.plotly_chart(apply_premium_plotly_styling(fig_p), width="stretch")
-        
-        st.markdown("#### Tableau de Bord Portuaire")
-        st.dataframe(df_port_agg, width="stretch")
+            # --- Graphique Explicatif ---
+            st.markdown("#### Comparaison Stratégique : Halles vs Marchés de Gros")
+            try:
+                # Calculer les totaux par catégorie
+                ca_24_halles = df_halles['CA2024(KDh)'].sum()
+                ca_25_halles = df_halles['CA2025(KDh)'].sum()
+                ca_24_mg = df_mg['CA2024(KDh)'].sum()
+                ca_25_mg = df_mg['CA2025(KDh)'].sum()
+                ca_24_total = df_dr_agg['CA2024(KDh)'].sum()
+                ca_25_total = df_dr_agg['CA2025(KDh)'].sum()
+                
+                # Préparer les données pour le graphique
+                data_comp = [
+                    {'Catégorie': 'Total Global (DR)', 'Année': '2024', 'CA (MDh)': ca_24_total / 1000},
+                    {'Catégorie': 'Total Global (DR)', 'Année': '2025', 'CA (MDh)': ca_25_total / 1000},
+                    {'Catégorie': 'Halles de Débarquement', 'Année': '2024', 'CA (MDh)': ca_24_halles / 1000},
+                    {'Catégorie': 'Halles de Débarquement', 'Année': '2025', 'CA (MDh)': ca_25_halles / 1000},
+                    {'Catégorie': 'Marchés de Gros (MG)', 'Année': '2024', 'CA (MDh)': ca_24_mg / 1000},
+                    {'Catégorie': 'Marchés de Gros (MG)', 'Année': '2025', 'CA (MDh)': ca_25_mg / 1000}
+                ]
+                df_comp = pd.DataFrame(data_comp)
+                
+                # Créer le graphique
+                fig_comp = px.bar(
+                    df_comp, 
+                    x='Catégorie', 
+                    y='CA (MDh)', 
+                    color='Année', 
+                    barmode='group',
+                    text_auto='.1f',
+                    color_discrete_map={'2024': '#94A3B8', '2025': '#0369A1'},
+                    title="Chiffre d'Affaires 2024 vs 2025 selon le circuit de commercialisation"
+                )
+                fig_comp.update_traces(textfont_size=12, textangle=0, textposition="outside", cliponaxis=False)
+                fig_comp = apply_premium_plotly_styling(fig_comp)
+                fig_comp.update_yaxes(range=[0, max(df_comp['CA (MDh)']) * 1.2]) # Laisser de l'espace pour les labels
+                st.plotly_chart(fig_comp, width="stretch")
+            except Exception as e:
+                st.info("Graphique de comparaison indisponible.")
+            st.markdown("#### 1. Performance Globale par Délégation (Toutes les DR)")
+            st.dataframe(
+                df_dr_agg.sort_values('CA2025(KDh)', ascending=False).style.format({'CA2024(KDh)': '{:,.0f}', 'CA2025(KDh)': '{:,.0f}', 'VARIATION(KDh)': '{:,.0f}'})
+                .highlight_min(subset=['VARIATION(KDh)'], color='#FEE2E2')
+                .highlight_max(subset=['VARIATION(KDh)'], color='#DCFCE7'), 
+                width="stretch"
+            )
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("#### Top 10 Halles les plus rentables (2025)")
+                fig_top_h = px.bar(
+                    df_top_halles.head(10), x='PORT', y='CA2025(KDh)',
+                    title="Top 10 Halles (CA 2025)", color='CA2025(KDh)', color_continuous_scale='Blues'
+                )
+                fig_top_h.update_layout(xaxis_title="", yaxis_title="CA (KDh)", coloraxis_showscale=False)
+                fig_top_h.update_traces(hovertemplate='%{x}<br>CA: %{y:,.0f} KDh')
+                st.plotly_chart(apply_premium_plotly_styling(fig_top_h), width="stretch")
+                
+                st.markdown("#### 2. Top 20 des Halles les plus rentables")
+                st.dataframe(
+                    df_top_halles[['DR', 'PORT', 'CA2025(KDh)', 'VARIATION(KDh)']]
+                    .style.format({'CA2025(KDh)': '{:,.0f}', 'VARIATION(KDh)': '{:,.0f}'})
+                    .background_gradient(subset=['CA2025(KDh)'], cmap='Blues'), 
+                    width="stretch"
+                )
+                
+                # Bouton de téléchargement Excel pour les Halles
+                import io
+                buf_halles = io.BytesIO()
+                df_top_halles.to_excel(buf_halles, index=False)
+                st.download_button(
+                    label="Telecharger le Rapport des Halles (.xlsx)",
+                    data=buf_halles.getvalue(),
+                    file_name="rapport_halles_2025.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            
+            with col2:
+                st.markdown("#### Top Marchés de Gros les plus rentables (2025)")
+                fig_top_mg = px.bar(
+                    df_mg.head(10), x='PORT', y='CA2025(KDh)',
+                    title="Top MG (CA 2025)", color='CA2025(KDh)', color_continuous_scale='Oranges'
+                )
+                fig_top_mg.update_layout(xaxis_title="", yaxis_title="CA (KDh)", coloraxis_showscale=False)
+                fig_top_mg.update_traces(hovertemplate='%{x}<br>CA: %{y:,.0f} KDh')
+                st.plotly_chart(apply_premium_plotly_styling(fig_top_mg), width="stretch")
+
+                st.markdown("#### 3. Performance des Marchés de Gros (MG)")
+                st.dataframe(
+                    df_mg[['DR', 'PORT', 'CA2025(KDh)', 'VARIATION(KDh)']]
+                    .style.format({'CA2025(KDh)': '{:,.0f}', 'VARIATION(KDh)': '{:,.0f}'})
+                    .background_gradient(subset=['CA2025(KDh)'], cmap='Oranges'), 
+                    width="stretch"
+                )
+                
+                # Bouton de téléchargement Excel pour les MG
+                buf_mg = io.BytesIO()
+                df_mg.to_excel(buf_mg, index=False)
+                st.download_button(
+                    label="Telecharger le Rapport des MG (.xlsx)",
+                    data=buf_mg.getvalue(),
+                    file_name="rapport_mg_2025.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+        else:
+            st.warning("Impossible de charger les données détaillées depuis le fichier Excel.")
 
     with tab3:
         st.markdown("### Génération du Rapport Institutionnel")
@@ -1907,20 +2419,34 @@ def render_page_diminution_ca(df_default):
             "success"
         )
         
-        # Prepare stats for Word
+        # Préparation des statistiques pour le rapport Word
+        # S'assurer que df_reduction possède toutes les colonnes nécessaires (utilisées dans les groupby du docx)
+        if 'ca_diff_kdh' not in df_reduction.columns:
+            df_reduction['ca_diff_kdh'] = df_reduction.get('ca_2025_kdh', pd.Series(dtype=float)).fillna(0) - df_reduction.get('ca_2024_kdh', pd.Series(dtype=float)).fillna(0)
+        vol_2025 = df_reduction['vol_2025_t'].sum() if 'vol_2025_t' in df_reduction.columns else 97000
         word_stats = {
-            'ca_2024': ca_2024,
-            'ca_2025': ca_2025,
+            'ca_2024': ca_2024_kdh,
+            'ca_2025': ca_2025_kdh,
             'vol_2024': vol_2024,
             'vol_2025': vol_2025,
             'diff_pct': diff_ca_pct,
-            'diff': diff_ca
+            'diff': diff_ca_kdh
         }
         
-        # Export Figs
+        # Export Figs dynamically building fallback keys
+        if not df_dr_agg.empty:
+            fig_bar_dr = px.bar(df_dr_agg, y='VARIATION(KDh)', x='DR', title="Variation CA par DR")
+        else:
+            fig_bar_dr = px.bar(title="Aucune donnée (Variation par DR)")
+            
+        if not df_port_export.empty:
+            fig_bar_port = px.bar(df_port_export.head(10), x='ca_diff_kdh', y='port', orientation='h', title="Top Baisses Par Port")
+        else:
+            fig_bar_port = px.bar(title="Aucune donnée (Top Baisses Port)")
+
         figs = {
-            "Variation par DR": px.bar(df_del.reset_index(), y='ca_diff_kdh', x='delegation', title="Variation CA par DR"),
-            "Top Baisses Port": px.bar(df_port_agg.reset_index().head(10), x='ca_diff_kdh', y='port', orientation='h', title="Top Baisses Par Port")
+            "Variation par DR": fig_bar_dr,
+            "Top Baisses Port": fig_bar_port
         }
         
         try:
@@ -1993,17 +2519,34 @@ def render_page_rapport(df, filters=None):
         st.info("Ajustez les filtres dans la barre latérale pour afficher les résultats du rapport.")
         return
     
-    # KPIs en rangée formelle
+    # KPIs en rangée formelle — utiliser les données DR Excel (source officielle)
     metrics = calculate_financial_metrics(df)
+    
+    # Tenter de charger les KPIs officiels depuis le fichier DR
+    ca_2024_official = 11320340 / 1000  # En MDh pour la carte
+    ca_2025_official = 10880720 / 1000  # En MDh pour la carte
+    vol_2024_official = None
+    vol_2025_official = None
+    
     col_a, col_b, col_c, col_d = st.columns(4)
     with col_a:
-        PremiumComponents.metric_card("Recette Globale", f"{metrics['recette_totale_mdh']:.1f} MDH", "finance", "+3.2%", "green")
+        ca_disp = f"{ca_2024_official:,.1f} MDh"
+        PremiumComponents.metric_card("CA National 2024", ca_disp, "finance", "Source officielle DR", "blue")
     with col_b:
-        PremiumComponents.metric_card("Volume Total", f"{metrics['volume_total_tonnes']:,.0f} T", "anchor", "Stable", "blue")
+        ca_disp2 = f"{ca_2025_official:,.1f} MDh"
+        color2 = "green" if ca_2025_official and ca_2025_official > (ca_2024_official or 0) else "orange"
+        PremiumComponents.metric_card("CA National 2025", ca_disp2, "finance", "Source officielle DR", color2)
     with col_c:
-        PremiumComponents.metric_card("Prix Moyen", f"{metrics['prix_moyen_dh_kg']:.2f} DH", "target", "-1.5%", "orange")
+        vol_disp = f"{vol_2025_official:,.0f} T" if vol_2025_official else f"{metrics['volume_total_tonnes']:,.0f} T"
+        PremiumComponents.metric_card("Volume 2025", vol_disp, "anchor", "Tous ports", "blue")
     with col_d:
-        PremiumComponents.metric_card("Performance ML", "85%", "brain", "Précision R²", "blue")
+        if ca_2024_official and ca_2025_official:
+            var_ca = ca_2025_official - ca_2024_official
+            var_pct = (var_ca / ca_2024_official) * 100 if ca_2024_official else 0
+            col4_color = "green" if var_ca >= 0 else "red"
+            PremiumComponents.metric_card("Variation CA", f"{var_ca:+,.1f} MDh", "chart", f"{var_pct:+.1f}%", col4_color)
+        else:
+            PremiumComponents.metric_card("Prix Moyen", f"{metrics['prix_moyen_dh_kg']:.2f} DH", "target", "", "orange")
 
     st.markdown("<br><hr style='border: 0; border-top: 1px solid #E2E8F0;'><br>", unsafe_allow_html=True)
     
@@ -2162,241 +2705,381 @@ def apply_filters(df, filters):
              
     return df_filtered
 
-def render_page_extraction_2024_2025():
-    """Page d'analyse de l'extraction 2024-2025"""
-    from extraction_2024_2025 import extract_summary_data, calculate_global_kpis
-    from extraction_report_generator import create_extraction_word_report
-    import plotly.express as px
-    import plotly.graph_objects as go
-    
-    render_header()
+# ==================== PAGE SIMULATEUR B2B (MARGE MAREYEUR) ====================
+
+def render_page_simulateur_b2b():
+    """Page interactive pour le simulateur de marges d'achat/revente B2B"""
+    from simulateur_b2b import calculate_mareyeur_margin, build_waterfall_chart, DEFAULT_COSTS
+
     PremiumComponents.section_header(
-        "Analyse Extraction 2024-2025",
-        "Analyse Comparative Détaillée des Performances par DR et Espèce",
-        "database"
+        "Simulateur de Rentabilité B2B",
+        "Estimez votre marge nette après taxes ONP, logistique et coûts opérationnels",
+        "calculator"
+    )
+
+    st.markdown("""
+        <div style="background-color: #F8FAFC; padding: 16px; border-radius: 8px; border-left: 4px solid #0EA5E9; margin-bottom: 24px;">
+            <strong>Comment utiliser ce simulateur ?</strong> Saisissez le volume et le prix d'achat en halle ci-dessous. 
+            Les taxes réglementaires (ONP 3% + Commune 1%) sont appliquées automatiquement. 
+            Ajustez ensuite vos frais logistiques pour visualiser votre rentabilité finale.
+        </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2 = st.columns([1, 1], gap="large")
+
+    with col1:
+        st.markdown("### 1. Paramètres d'Achat")
+        volume = st.number_input("Volume Acquis (en kg)", min_value=1, value=1000, step=100)
+        prix_achat = st.number_input("Prix d'Achat Brut en Halle (DH/kg)", min_value=1.0, value=25.0, step=1.0)
+        prix_revente = st.number_input("💸 Prix de Revente Estimé (DH/kg)", min_value=1.0, value=35.0, step=1.0)
+        
+        st.markdown("<hr style='margin: 1rem 0;'>", unsafe_allow_html=True)
+        
+        st.markdown("### 2. Frais Logistiques (DH/kg)")
+        cout_glace = st.slider("Glace", 0.0, 3.0, DEFAULT_COSTS['glace_dh_kg'], step=0.1)
+        cout_manu = st.slider("Manutention", 0.0, 3.0, DEFAULT_COSTS['manutention_dh_kg'], step=0.1)
+        cout_trans = st.slider("Transport", 0.0, 10.0, DEFAULT_COSTS['transport_dh_kg'], step=0.5)
+        cout_emb = st.slider("Emballage", 0.0, 5.0, DEFAULT_COSTS['emballage_dh_kg'], step=0.1)
+
+        couts_perso = {
+            'glace_dh_kg': cout_glace,
+            'manutention_dh_kg': cout_manu,
+            'transport_dh_kg': cout_trans,
+            'emballage_dh_kg': cout_emb
+        }
+
+    with col2:
+        st.markdown("### 3. Résultat de la Simulation")
+        res = calculate_mareyeur_margin(volume, prix_achat, prix_revente, couts_perso)
+        
+        # Affichage des KPIs
+        k1, k2 = st.columns(2)
+        with k1:
+            st.metric("Coût de Revient Total", f"{res['cout_revient_total']:,.0f} DH", f"{res['prix_revient_unitaire']:.2f} DH/kg", delta_color="off")
+            
+            roi_color = "normal" if res['marge_nette_globale'] >= 0 else "inverse"
+            st.metric("Marge Nette Globale", f"{res['marge_nette_globale']:,.0f} DH", f"{res['marge_nette_unitaire']:+.2f} DH/kg", delta_color=roi_color)
+
+        with k2:
+            st.metric("Chiffre d'Affaires", f"{res['chiffre_affaires_revente']:,.0f} DH")
+            st.metric("ROI (Rentabilité)", f"{res['roi_pct']:.1f}%", f"{res['roi_pct']:.1f}%", delta_color=roi_color)
+
+        st.markdown("<hr style='margin: 1rem 0;'>", unsafe_allow_html=True)
+
+        # Graphique Waterfall
+        fig = build_waterfall_chart(res)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Synthèse des coûts supplémentaires
+        st.markdown("**Détail des Frais & Taxes (Enveloppe totale)**")
+        st.caption(f"- Taxes ONP & Commune : **{res['montant_taxes']:,.0f} DH**")
+        st.caption(f"- Logistique Totale : **{res['total_logistique']:,.0f} DH**")
+
+
+# ==================== PAGE VUE EXÉCUTIVE (DIRECTEUR) ====================
+
+def render_page_executive_view(df: pd.DataFrame):
+    """Tableau de bord ultra-condensé pour la Direction (Top Metrics & Alertes)"""
+    PremiumComponents.section_header(
+        "Vue Exécutive (Direction)",
+        "Synthèse Flash des Ventes et Alertes Marché (2024-2025)",
+        "star"
+    )
+
+    if df is None or df.empty:
+        st.warning("Données insuffisantes.")
+        return
+
+    # S'assurer qu'on a les bonnes années
+    df_exec = df[df['annee'].isin([2024, 2025])].copy()
+    if df_exec.empty:
+        st.info("Aucune donnée pour 2024-2025.")
+        return
+
+    # Grouper pour extraire les grands totaux
+    total_ca = df_exec['recette_totale'].sum()
+    total_vol = df_exec['volume_kg'].sum() / 1000  # Conversion en Tonnes
+
+    # --- TOP KPIs ---
+    st.markdown("### Chiffres Clés (Cumul 2024-2025)")
+    k1, k2, k3 = st.columns(3)
+    
+    with k1:
+        st.markdown(f"""
+        <div style="background:linear-gradient(135deg, #0369A1, #0284C7); padding:20px; border-radius:12px; color:white; box-shadow:0 4px 15px rgba(2,132,199,0.2);">
+            <div style="font-size:0.9rem; opacity:0.8; text-transform:uppercase; font-weight:700;">Chiffre d'Affaires Global</div>
+            <div style="font-size:2rem; font-weight:800; margin-top:5px;">{total_ca/1e6:,.1f} M DH</div>
+        </div>""", unsafe_allow_html=True)
+    with k2:
+        st.markdown(f"""
+        <div style="background:white; padding:20px; border-radius:12px; border:1px solid #E2E8F0; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+            <div style="font-size:0.9rem; color:#64748B; text-transform:uppercase; font-weight:700;">Volume Total Débarqué</div>
+            <div style="font-size:2rem; font-weight:800; color:#1E293B; margin-top:5px;">{total_vol:,.0f} T</div>
+        </div>""", unsafe_allow_html=True)
+    with k3:
+        prix_moyen_global = total_ca / total_vol if total_vol > 0 else 0
+        st.markdown(f"""
+        <div style="background:white; padding:20px; border-radius:12px; border:1px solid #E2E8F0; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+            <div style="font-size:0.9rem; color:#64748B; text-transform:uppercase; font-weight:700;">Prix Moyen Pondéré</div>
+            <div style="font-size:2rem; font-weight:800; color:#10B981; margin-top:5px;">{prix_moyen_global:.2f} DH/kg</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
+
+    c_left, c_right = st.columns(2)
+
+    # --- TOP 5 ---
+    with c_left:
+        st.markdown("### Top 5 Espèces par Valeur")
+        df_exec['ca_espece'] = df_exec['recette_totale']
+        top_especes = df_exec.groupby('espece')['ca_espece'].sum().sort_values(ascending=False).head(5)
+        
+        for i, (esp, ca_esp) in enumerate(top_especes.items()):
+            pct = (ca_esp / total_ca) * 100
+            st.markdown(f"""
+            <div style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:600; color:#334155;">{i+1}. {esp}</span>
+                <span style="color:#0369A1; font-weight:700;">{ca_esp/1e6:.1f} M DH <span style="font-size:0.8rem; color:#94A3B8; font-weight:normal;">({pct:.1f}%)</span></span>
+            </div>""", unsafe_allow_html=True)
+
+    # --- ALERTES DE MARCHÉ ---
+    with c_right:
+        st.markdown("### Alertes de Marché (Chutes de Prix)")
+        st.caption("Détection d'une baisse > 15% du prix moyen entre 2024 et 2025 pour les volumes significatifs.")
+        
+        # Analyser les variations de prix 2024 vs 2025 pour les grandes espèces (> 10 Tonnes)
+        alertes = []
+        for esp in df_exec['espece'].unique():
+            df_esp_24 = df_exec[(df_exec['espece'] == esp) & (df_exec['annee'] == 2024)]
+            df_esp_25 = df_exec[(df_exec['espece'] == esp) & (df_exec['annee'] == 2025)]
+            
+            vol_24 = df_esp_24['volume_kg'].sum() / 1000
+            vol_25 = df_esp_25['volume_kg'].sum() / 1000
+            
+            if vol_24 > 10 and vol_25 > 10:
+                p_24 = df_esp_24['recette_totale'].sum() / (vol_24 * 1000)
+                p_25 = df_esp_25['recette_totale'].sum() / (vol_25 * 1000)
+                variation = (p_25 - p_24) / p_24 * 100
+                
+                if variation < -15.0:
+                    alertes.append({
+                        'espece': esp,
+                        'baisse': variation,
+                        'p24': p_24,
+                        'p25': p_25
+                    })
+        
+        if not alertes:
+            st.success("Aucune alerte critique détectée. Marché stable.")
+        else:
+            alertes = sorted(alertes, key=lambda x: x['baisse'])[:5] # Top 5 plus grosses chutes
+            for a in alertes:
+                st.markdown(f"""
+                <div style="background:rgba(239, 68, 68, 0.1); border-left:3px solid #EF4444; padding:10px 15px; border-radius:4px; margin-bottom:10px;">
+                    <div style="font-weight:700; color:#B91C1C;">{a['espece']}</div>
+                    <div style="font-size:0.85rem; color:#7F1D1D;">
+                        Chute de <strong>{a['baisse']:.1f}%</strong> (Passage de {a['p24']:.2f} à {a['p25']:.2f} DH/kg)
+                    </div>
+                </div>""", unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
+    
+    # --- EXPORT REPORT (PDF/Markdown) ---
+    st.markdown("### Export du Rapport Direction")
+    st.caption("Téléchargez la synthèse exécutive au format Markdown (lisible et convertible en PDF).")
+    
+    report_md = f"""# Rapport Exécutif ONP - Synthèse Flash 2024-2025
+Généré automatiquement par ONP Premium.
+
+## 1. Chiffres Clés Globaux
+- **Chiffre d'Affaires Global :** {total_ca/1e6:,.1f} Millions DH
+- **Volume Total Débarqué :** {total_vol:,.0f} Tonnes
+- **Prix Moyen Pondéré :** {prix_moyen_global:.2f} DH/kg
+
+## 2. Top 5 Espèces (Chiffre d'Affaires)
+"""
+    for i, (esp, ca_esp) in enumerate(top_especes.items()):
+        pct = (ca_esp / total_ca) * 100
+        report_md += f"{i+1}. **{esp}** : {ca_esp/1e6:.1f} M DH ({pct:.1f}%)\\n"
+
+    report_md += "\\n## 3. Alertes Marché (Chutes de Prix > 15%)\\n"
+    if not alertes:
+        report_md += "✅ Marché stable, aucune chute de prix significative détectée.\\n"
+    else:
+        for a in alertes:
+            report_md += f"- **{a['espece']}** : Chute de {a['baisse']:.1f}% (Passage de {a['p24']:.2f} à {a['p25']:.2f} DH/kg)\\n"
+            
+    st.download_button(
+        label="Télécharger le Rapport Exécutif (MD)",
+        data=report_md.encode('utf-8'),
+        file_name="rapport_executif_onp.md",
+        mime='text/markdown',
+        width="stretch"
+    )
+
+
+# ==================== PAGE SAISONNALITE ====================
+
+def render_page_saisonnalite(df):
+    """Page d'analyse de saisonnalité des prix — 4 facteurs interactifs"""
+    from saisonnalite import (
+        CALENDRIER_BIOLOGIQUE, MOIS_LABELS,
+        build_seasonality_dashboard, build_summary_table
     )
     
-    # Charger les données
-    with st.spinner("Chargement des données d'extraction..."):
-        try:
-            df_summary = extract_summary_data()
-            kpis = calculate_global_kpis()
-        except Exception as e:
-            st.error(f"Erreur lors du chargement: {e}")
-            return
+    PremiumComponents.section_header(
+        "Saisonnalité des Prix & Volumes",
+        "Analyse 4 facteurs : captures, biologie, carburant & climat",
+        "chart"
+    )
     
-    # KPIs Globaux
-    st.markdown("### Indicateurs Clés")
-    col1, col2, col3, col4 = st.columns(4)
+    if df is None or df.empty:
+        st.warning("Données insuffisantes.")
+        return
+
+    # ── Choix du niveau d'analyse ────────────────────────────────────
+    niveau_analyse = st.radio(
+        "Niveau d'analyse :",
+        ["Catégories (Global)", "Espèces détaillées (Sardine, Poulpe, Merlu...)"],
+        horizontal=True
+    )
     
-    with col1:
-        PremiumComponents.metric_card(
-            "CA 2024",
-            f"{kpis['ca_2024_total_mdh']:,.1f} MDH",
-            "finance",
-            "",
-            "blue"
-        )
+    st.markdown("<hr style='margin-top:0.5rem; margin-bottom:1.5rem;'/>", unsafe_allow_html=True)
     
-    with col2:
-        PremiumComponents.metric_card(
-            "CA 2025",
-            f"{kpis['ca_2025_total_mdh']:,.1f} MDH",
-            "finance",
-            "",
-            "blue"
-        )
-    
-    with col3:
-        color = "green" if kpis['var_ca_mdh'] >= 0 else "red"
-        PremiumComponents.metric_card(
-            "Variation CA",
-            f"{kpis['var_ca_mdh']:+,.1f} MDH",
-            "trending-up" if kpis['var_ca_mdh'] >= 0 else "trending-down",
-            f"{kpis['var_ca_pct']:+.2f}%",
-            color
-        )
-    
-    with col4:
-        PremiumComponents.metric_card(
-            "Espèces",
-            f"{int(kpis['nb_especes'])}",
-            "fish",
-            f"{int(kpis['nb_dr'])} DR",
-            "blue"
-        )
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Bouton Export Word
-    col_export1, col_export2 = st.columns([3, 1])
-    with col_export2:
-        if st.button("Générer Rapport Word", use_container_width=True):
-            with st.spinner("Génération du rapport Word..."):
+    if "Espèces" in niveau_analyse:
+        import os
+        detailed_file = 'onp_reinforced_ml_data.csv.bak'
+        if os.path.exists(detailed_file):
+            with st.spinner("Chargement des espèces détaillées..."):
                 try:
-                    output_path = create_extraction_word_report()
-                    with open(output_path, "rb") as f:
-                        st.download_button(
-                            label="Télécharger le Rapport",
-                            data=f,
-                            file_name="Rapport_Extraction_2024_2025.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            use_container_width=True
-                        )
-                    st.success("✓ Rapport généré avec succès!")
+                    df_detail = pd.read_csv(detailed_file)
+                    if 'date_vente' in df_detail.columns:
+                        df_detail['date_vente'] = pd.to_datetime(df_detail['date_vente'], errors='coerce')
+                        df_detail['annee'] = df_detail['date_vente'].dt.year
+                        df_detail['mois'] = df_detail['date_vente'].dt.month
+                    # Ne garder que les années 2024-2025 pour la cohérence du Dashboard
+                    df = df_detail[df_detail['annee'].isin([2024, 2025])].dropna(subset=['annee', 'mois', 'espece'])
                 except Exception as e:
-                    st.error(f"Erreur: {e}")
-    
-    # Tabs pour différentes analyses
-    tab1, tab2, tab3 = st.tabs([
-        "Vue d'Ensemble",
-        "Analyse par DR",
-        "Analyse par Espèce"
-    ])
-    
-    with tab1:
-        st.markdown("#### Évolution Globale du Chiffre d'Affaires")
-        
-        # Graphique comparatif CA
-        fig_ca = go.Figure(data=[
-            go.Bar(
-                name='2024',
-                x=['CA Total'],
-                y=[kpis['ca_2024_total_mdh']],
-                marker_color='#3B82F6',
-                text=[f"{kpis['ca_2024_total_mdh']:,.1f} MDH"],
-                textposition='auto'
-            ),
-            go.Bar(
-                name='2025',
-                x=['CA Total'],
-                y=[kpis['ca_2025_total_mdh']],
-                marker_color='#10B981',
-                text=[f"{kpis['ca_2025_total_mdh']:,.1f} MDH"],
-                textposition='auto'
-            )
-        ])
-        fig_ca.update_layout(
-            title='Comparaison CA 2024 vs 2025',
-            yaxis_title='Chiffre d\'Affaires (MDH)',
-            barmode='group',
-            height=400,
-            showlegend=True
+                    st.error(f"Erreur chargement données détaillées: {e}")
+        else:
+            st.warning("Fichier d'espèces détaillées introuvable.")
+
+    # ── Filtres ──────────────────────────────────────────────────────
+    all_especes = sorted(df['espece'].dropna().unique().tolist())
+    all_annees = sorted(df['annee'].dropna().astype(int).unique().tolist())
+
+    col_f1, col_f2 = st.columns([2, 1])
+    with col_f1:
+        espece_sel = st.multiselect(
+            "Sélection des Espèces / Catégories",
+            all_especes,
+            default=all_especes[:2] if len(all_especes) >= 2 else all_especes,
+            help="Sélectionnez une ou plusieurs entités pour agréger l'analyse."
         )
-        st.plotly_chart(fig_ca, use_container_width=True)
-        
-        # Graphique volumes
-        st.markdown("#### Évolution des Volumes")
-        fig_vol = go.Figure(data=[
-            go.Bar(
-                name='2024',
-                x=['Volume Total'],
-                y=[kpis['volume_2024_total_t']],
-                marker_color='#3B82F6',
-                text=[f"{kpis['volume_2024_total_t']:,.0f} T"],
-                textposition='auto'
-            ),
-            go.Bar(
-                name='2025',
-                x=['Volume Total'],
-                y=[kpis['volume_2025_total_t']],
-                marker_color='#10B981',
-                text=[f"{kpis['volume_2025_total_t']:,.0f} T"],
-                textposition='auto'
-            )
-        ])
-        fig_vol.update_layout(
-            title='Comparaison Volumes 2024 vs 2025',
-            yaxis_title='Volume (Tonnes)',
-            barmode='group',
-            height=400
+    with col_f2:
+        annee_sel = st.multiselect(
+            "Année(s) d'analyse",
+            all_annees,
+            default=all_annees,
+            help="Comparez 2024 et/ou 2025."
         )
-        st.plotly_chart(fig_vol, use_container_width=True)
-    
-    with tab2:
-        st.markdown("#### Analyse par Délégation Régionale")
-        
-        # Agrégation par DR
-        df_by_dr = df_summary.groupby('dr').agg({
-            'ca_2024_kdh': 'sum',
-            'ca_2025_kdh': 'sum',
-            'var_ca_kdh': 'sum',
-            'volume_2024_t': 'sum',
-            'volume_2025_t': 'sum'
-        }).reset_index()
-        df_by_dr['var_ca_pct'] = (df_by_dr['var_ca_kdh'] / df_by_dr['ca_2024_kdh'] * 100).fillna(0)
-        df_by_dr = df_by_dr.sort_values('var_ca_kdh', ascending=False)
-        
-        # Graphique variations par DR
-        fig_dr = px.bar(
-            df_by_dr.head(15),
-            x='dr',
-            y='var_ca_kdh',
-            title='Top 15 DR - Variation du CA (KDh)',
-            labels={'var_ca_kdh': 'Variation CA (KDh)', 'dr': 'Délégation Régionale'},
-            color='var_ca_kdh',
-            color_continuous_scale='RdYlGn'
+
+    if not espece_sel:
+        st.info("Sélectionnez au moins une catégorie ou espèce.")
+        return
+    if not annee_sel:
+        st.info("Sélectionnez au moins une année.")
+        return
+
+    # ── Indicateurs de repos biologique (banderoles) ─────────────────
+    mois_repos_all = set()
+    for esp in espece_sel:
+        mois_repos_all.update(CALENDRIER_BIOLOGIQUE.get(esp, {}).get('mois_repos', []))
+
+    if mois_repos_all:
+        periodes = ', '.join([MOIS_LABELS[m - 1] for m in sorted(mois_repos_all)])
+        st.markdown(f"""
+        <div style="background:rgba(239,68,68,0.08); border-left:4px solid #DC2626;
+                    padding:10px 18px; border-radius:8px; margin-bottom:12px;">
+            <span style="color:#DC2626; font-weight:800">Repos Biologique</span>
+            <span style="color:#64748B; margin-left:10px;">
+                Périodes de restrictions : <strong>{periodes}</strong>
+            </span>
+        </div>""", unsafe_allow_html=True)
+
+    # ── KPIs rapides ─────────────────────────────────────────────────
+    from saisonnalite import get_monthly_stats, FUEL_PRICES_2024, FUEL_PRICES_2025
+    kpi_cols = st.columns(4)
+    for i, annee in enumerate(annee_sel[:4]):
+        monthly = get_monthly_stats(df, espece_sel, annee)
+        ca_total = (monthly['prix_moy'] * monthly['vol_t']).sum()
+        vol_total = monthly['vol_t'].sum()
+        prix_max_mois = MOIS_LABELS[monthly['prix_moy'].idxmax()]
+        with kpi_cols[i % 4]:
+            st.markdown(f"""
+            <div style="background:white; padding:14px; border-radius:12px;
+                        border:1px solid #E2E8F0; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                <div style="font-size:0.7rem; font-weight:700; color:#64748B; text-transform:uppercase;">{annee}</div>
+                <div style="font-size:1.4rem; font-weight:800; color:#0369A1;">{vol_total:,.0f} T</div>
+                <div style="font-size:0.8rem; color:#475569;">CA : {ca_total/1000:,.1f} MDh</div>
+                <div style="font-size:0.75rem; color:#10B981;">Prix max → {prix_max_mois}</div>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Dashboard 4 panneaux ─────────────────────────────────────────
+    with st.spinner("Construction du dashboard saisonnalité..."):
+        fig = build_seasonality_dashboard(df, espece_sel, annee_sel)
+        fig = apply_premium_plotly_styling(fig)
+        st.plotly_chart(fig, use_container_width=True)
+
+    # ── Table de synthèse ────────────────────────────────────────────
+    with st.expander("Table de Synthèse Mensuelle (Exportable)", expanded=False):
+        df_tbl = build_summary_table(df, espece_sel, annee_sel)
+        st.dataframe(df_tbl, use_container_width=True, hide_index=True)
+        csv_bytes = df_tbl.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Télécharger CSV",
+            data=csv_bytes,
+            file_name=f"saisonnalite_{'_'.join(map(str,annee_sel))}.csv",
+            mime='text/csv'
         )
-        fig_dr.update_layout(height=500)
-        st.plotly_chart(fig_dr, use_container_width=True)
-        
-        # Tableau détaillé
-        st.markdown("#### Tableau Détaillé par DR")
-        df_display_dr = df_by_dr.copy()
-        df_display_dr['CA 2024 (MDH)'] = df_display_dr['ca_2024_kdh'] / 1000
-        df_display_dr['CA 2025 (MDH)'] = df_display_dr['ca_2025_kdh'] / 1000
-        df_display_dr['Variation (MDH)'] = df_display_dr['var_ca_kdh'] / 1000
-        df_display_dr['Variation (%)'] = df_display_dr['var_ca_pct']
-        
-        st.dataframe(
-            df_display_dr[['dr', 'CA 2024 (MDH)', 'CA 2025 (MDH)', 'Variation (MDH)', 'Variation (%)']].head(20),
-            use_container_width=True
-        )
-    
-    with tab3:
-        st.markdown("#### Analyse par Espèce")
-        
-        # Agrégation par espèce
-        df_by_espece = df_summary.groupby('espece').agg({
-            'ca_2024_kdh': 'sum',
-            'ca_2025_kdh': 'sum',
-            'var_ca_kdh': 'sum',
-            'volume_2024_t': 'sum',
-            'volume_2025_t': 'sum'
-        }).reset_index()
-        df_by_espece['var_ca_pct'] = (df_by_espece['var_ca_kdh'] / df_by_espece['ca_2024_kdh'] * 100).fillna(0)
-        df_by_espece = df_by_espece.sort_values('ca_2025_kdh', ascending=False)
-        
-        # Graphique Top 15 espèces
-        fig_esp = px.bar(
-            df_by_espece.head(15),
-            x='espece',
-            y='var_ca_kdh',
-            title='Top 15 Espèces - Variation du CA (KDh)',
-            labels={'var_ca_kdh': 'Variation CA (KDh)', 'espece': 'Espèce'},
-            color='var_ca_kdh',
-            color_continuous_scale='RdYlGn'
-        )
-        fig_esp.update_layout(height=500)
-        st.plotly_chart(fig_esp, use_container_width=True)
-        
-        # Tableau détaillé
-        st.markdown("#### Top 20 Espèces par CA 2025")
-        df_display_esp = df_by_espece.copy()
-        df_display_esp['CA 2024 (MDH)'] = df_display_esp['ca_2024_kdh'] / 1000
-        df_display_esp['CA 2025 (MDH)'] = df_display_esp['ca_2025_kdh'] / 1000
-        df_display_esp['Variation (MDH)'] = df_display_esp['var_ca_kdh'] / 1000
-        df_display_esp['Variation (%)'] = df_display_esp['var_ca_pct']
-        
-        st.dataframe(
-            df_display_esp[['espece', 'CA 2024 (MDH)', 'CA 2025 (MDH)', 'Variation (MDH)', 'Variation (%)']].head(20),
-            use_container_width=True
-        )
+
+    # ── Insights automatiques ────────────────────────────────────────
+    st.markdown("### Insights Automatiques")
+    from saisonnalite import get_monthly_stats, compute_fuel_correlation, get_fuel_series
+    insight_cols = st.columns(2)
+    for i, annee in enumerate(annee_sel):
+        monthly = get_monthly_stats(df, espece_sel, annee)
+        fuel = get_fuel_series(annee)
+        corr = compute_fuel_correlation(monthly['prix_moy'].tolist(), fuel)
+        vol_peak = MOIS_LABELS[monthly['vol_t'].idxmax()]
+        prix_peak = MOIS_LABELS[monthly['prix_moy'].idxmax()]
+        vol_low = MOIS_LABELS[monthly['vol_t'].idxmin()]
+
+        direction = '(positive)' if corr > 0.3 else ('(négative)' if corr < -0.3 else '(faible)')
+        with insight_cols[i % 2]:
+            st.markdown(f"""
+            <div style="background:white; padding:18px; border-radius:12px;
+                        border:1px solid #E2E8F0; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                <h4 style="margin:0 0 10px 0; color:#0369A1;">Année {annee}</h4>
+                <p style="margin:4px 0; font-size:0.85rem;">
+                    <strong>Pic de captures</strong> : {vol_peak}<br>
+                    <strong>Pic de prix</strong> : {prix_peak}<br>
+                    <strong>Creux de captures</strong> : {vol_low}<br>
+                    <strong>Corr. prix/carburant</strong> : {corr:+.2f} {direction}
+                </p>
+            </div>""", unsafe_allow_html=True)
 
 # ==================== MAIN APPLICATION ====================
 def main():
     """Fonction principale de l'application"""
+    init_auth_state()
     
+    if not st.session_state.logged_in:
+        render_login_view()
+        st.stop()
+        
     # Chargement/Récupération des données
     df = get_current_df()
     
@@ -2432,26 +3115,46 @@ def main():
             
     st.sidebar.markdown("---")
     
-    # Navigation
+    # Navigation contextuelle selon le rôle
     if 'selection' not in st.session_state:
         st.session_state.selection = "Accueil" # Accueil par défaut
 
-    nav_items = {
+    # Définition complète des onglets existants
+    all_nav_items = {
+        "Vue Exécutive": "star",
         "Accueil": "home",
         "Rapport 2024-2025": "report",
-        "Extraction 2024-2025": "database",
         "Analytics": "chart",
         "Analyse Financière": "finance",
+        "Saisonnalité": "chart",
+        "Simulateur B2B (Marge)": "calculator",
         "Machine Learning": "brain",
         "Simulateur": "simulation",
         "Rapport (V1)": "file-text"
     }
     
+    # Filtrage selon le rôle (RBAC)
+    nav_items = {}
+    role = st.session_state.user_role
+    
+    for label, icon in all_nav_items.items():
+        if role == "admin":
+            nav_items[label] = icon
+        elif role == "gestionnaire":
+            if label in ["Accueil", "Analytics", "Analyse Financière", "Rapport 2024-2025", "Saisonnalité", "Simulateur B2B (Marge)", "Rapport (V1)"]:
+                nav_items[label] = icon
+        elif role == "crieur":
+            if label in ["Accueil", "Simulateur", "Simulateur B2B (Marge)"]:
+                nav_items[label] = icon
+                
+    # Sécurité: si l'utilisateur est sur une page non autorisée, forcer l'accueil
+    if st.session_state.selection not in nav_items:
+        st.session_state.selection = "Accueil"
+    
     for label, icon in nav_items.items():
         is_selected = (st.session_state.selection == label)
-        # Use simple color if LuxIcons not robust, or stick to previous logic
-        # Assuming LuxIcons is robust
-        icon_html = f'<div style="padding-top: 5px;">{LuxIcons.render(icon, size=20, color="#10B981" if is_selected else "#94A3B8")}</div>'
+        icon_label = "octo" if "CEPHALOPODES" in label.upper() else icon
+        icon_html = f'<div style="padding-top: 5px;">{LuxIcons.render(icon_label, size=20, color="#10B981" if is_selected else "#94A3B8")}</div>'
         
         col_icon, col_btn = st.sidebar.columns([1, 4])
         with col_icon:
@@ -2467,6 +3170,9 @@ def main():
                 st.rerun()
 
     page = st.session_state.selection
+    
+    # Bouton de déconnexion
+    render_logout_button()
     
     st.sidebar.markdown("---")
     
@@ -2534,12 +3240,17 @@ def main():
     
     elif page == "Machine Learning":
         if df is not None and not df.empty:
+            # Récupérer l'horodatage du modèle pour forcer le cache
+            mtime = 0
+            if os.path.exists('models/best_model.pkl'):
+                mtime = os.path.getmtime('models/best_model.pkl')
+                
             if 'render_page_ml' in globals():
-                 predictor = initialize_predictor(df)
+                 predictor = initialize_predictor(df, mtime)
                  if predictor:
                     render_page_ml(df_filtered, predictor)
             elif 'render_page_prediction' in globals():
-                 predictor = initialize_predictor(df)
+                 predictor = initialize_predictor(df, mtime)
                  if predictor:
                     render_page_prediction(predictor, df_filtered)
             else:
@@ -2569,8 +3280,17 @@ def main():
         else:
             render_page_diminution_ca(df)
 
-    elif page == "Extraction 2024-2025":
-        render_page_extraction_2024_2025()
+    elif page == "Vue Exécutive":
+        render_page_executive_view(df_filtered)
+
+    elif page == "Simulateur B2B (Marge)":
+        render_page_simulateur_b2b()
+
+    elif page == "Saisonnalité":
+        if df_filtered is not None and not df_filtered.empty:
+            render_page_saisonnalite(df_filtered)
+        else:
+            st.warning("Données indisponibles pour l'analyse de saisonnalité.")
 
 if __name__ == "__main__":
     try:

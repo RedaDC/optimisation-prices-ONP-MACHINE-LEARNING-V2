@@ -17,12 +17,13 @@ import pandas as pd
 import numpy as np
 import joblib
 import os
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from datetime import datetime
+import plotly.graph_objects as go
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -106,7 +107,15 @@ class ONPPricePredictor:
         
         # Préparer X et y
         X = df_encoded[feature_cols].copy()
-        y = df_encoded[target_col].copy()
+        
+        # Transformation Logarithmique de la Cible (CRUCIAL pour la précision sur les prix élevés)
+        y = np.log1p(df_encoded[target_col])
+        
+        # Transformation Logarithmique des features de prix (pour cohérence d'échelle)
+        price_feats = ['prix_moyen_espece', 'prix_moyen_port', 'prix_moyen_region']
+        for col in price_feats:
+            if col in X.columns:
+                X[col] = np.log1p(X[col])
         
         # Gérer les valeurs manquantes restantes
         X = X.fillna(X.median())
@@ -195,69 +204,150 @@ class ONPPricePredictor:
         print(f"   DONE: MAE: {rf_mae:.2f} DH/kg")
         print(f"   DONE: R2: {rf_r2:.4f}")
         
-        # Modèle 3: HistGradientBoosting (Excellent pour la monotonie) - N'A PAS BESOIN de scaling
-        print("\n3. HistGradientBoosting Regressor (Elasticité Garantie)...")
-        mono_constraints = [0] * len(self.feature_names)
-        for i, name in enumerate(self.feature_names):
-            if name in ['volume_kg', 'log_volume', 'ratio_volume']:
-                mono_constraints[i] = -1 # Impact negatif strict
-            elif name == 'prix_moyen_espece':
-                mono_constraints[i] = 1 # Impact positif strict (plus l'espece est chere, plus le prix predictif monte)
-            
-        hgb_model = HistGradientBoostingRegressor(
-            max_iter=500,     # Augmenter les itérations
-            max_depth=15,
-            max_leaf_nodes=128,
-            min_samples_leaf=3,
-            learning_rate=0.1,
-            monotonic_cst=mono_constraints,
-            random_state=42
+        # Modèle 3: XGBoost (Modèle Principal Elite)
+        print("\n3. XGBoost Regressor (Performance Maximale)...")
+        import xgboost as xgb
+        
+        xgb_model = xgb.XGBRegressor(
+            n_estimators=1000,
+            learning_rate=0.05,
+            max_depth=8,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            n_jobs=-1,
+            random_state=42,
+            tree_method='hist'
         )
         
-        # Poids de l'échantillon pour forcer l'importance du prix de l'espèce
-        # Plus il y a de variance dans les prix réels, plus on veut que le modèle apprenne cette feature.
-        sample_weights = np.ones(len(y_train))
-        if 'prix_moyen_espece' in X_train.columns:
-            # On donne plus de poids aux observations où le prix moyen espèce est élevé
-            # pour mieux distinguer les espèces nobles des espèces de masse.
-            sample_weights = 1.0 + (X_train['prix_moyen_espece'] - X_train['prix_moyen_espece'].min()) / (X_train['prix_moyen_espece'].max() - X_train['prix_moyen_espece'].min() + 1)
-            
-        hgb_model.fit(X_train, y_train, sample_weight=sample_weights) # Utilise les données non-scalées
-        hgb_pred = hgb_model.predict(X_test) # Utilise les données non-scalées
+        xgb_model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
         
-        hgb_rmse = np.sqrt(mean_squared_error(y_test, hgb_pred))
-        hgb_mae = mean_absolute_error(y_test, hgb_pred)
-        hgb_r2 = r2_score(y_test, hgb_pred)
+        # Récupération des prédictions (Log-Scale)
+        xgb_log_pred = xgb_model.predict(X_test)
         
-        self.models['HGBoost'] = hgb_model
-        self.results['HGBoost'] = {
-            'RMSE': hgb_rmse,
-            'MAE': hgb_mae,
-            'R2': hgb_r2,
-            'predictions': hgb_pred
+        # Conversion Inverse (Back to DH/kg) pour les métriques métier
+        y_test_orig = np.expm1(y_test)
+        xgb_pred = np.expm1(xgb_log_pred)
+        
+        xgb_rmse = np.sqrt(mean_squared_error(y_test_orig, xgb_pred))
+        xgb_mae = mean_absolute_error(y_test_orig, xgb_pred)
+        xgb_r2 = r2_score(y_test_orig, xgb_pred)
+        
+        # Calcul du MAPE sécurisé (Mean Absolute Percentage Error)
+        ape = np.abs((y_test_orig - xgb_pred) / (y_test_orig + 1e-9))
+        xgb_mape = np.mean(np.clip(ape, 0, 1)) * 100 
+        
+        self.models['XGBoost'] = xgb_model
+        self.results['XGBoost'] = {
+            'RMSE': xgb_rmse,
+            'MAE': xgb_mae,
+            'R2': xgb_r2,
+            'MAPE': xgb_mape,
+            'predictions': xgb_pred,
+            'feature_importance': xgb_model.feature_importances_
         }
         
-        print(f"   DONE: RMSE: {hgb_rmse:.2f} DH/kg")
-        print(f"   DONE: MAE: {hgb_mae:.2f} DH/kg")
-        print(f"   DONE: R2: {hgb_r2:.4f}")
+        print(f"   DONE: RMSE: {xgb_rmse:.2f} DH/kg")
+        print(f"   DONE: MAE: {xgb_mae:.2f} DH/kg")
+        print(f"   DONE: R2: {xgb_r2:.4f}")
         
-        # Sélection du meilleur modèle (basé sur RMSE)
-        # On force HGBoost car il garantit l'élasticité demandée (Loi de l'Offre et de la Demande)
-        best_rmse = min(lr_rmse, rf_rmse, hgb_rmse)
-        
-        if hgb_rmse <= best_rmse * 1.30: 
-            self.best_model_name = 'HGBoost'
-        elif best_rmse == lr_rmse:
-            self.best_model_name = 'Linear Regression'
-        else:
-            self.best_model_name = 'Random Forest'
-        
+        # Sélection du meilleur modèle (Focus XGBoost)
+        self.best_model_name = 'XGBoost'
         self.best_model = self.models[self.best_model_name]
         
-        print(f"\nWINNER (Elasticite Garantie): Meilleur modele: {self.best_model_name}")
-        print(f"   RMSE: {self.results[self.best_model_name]['RMSE']:.2f} DH/kg")
-        
+        print(f"\nWINNER (Anti-Gravity AI): Meilleur modele: {self.best_model_name}")
         return self.results
+    
+    def evaluate_model(self, X, y, n_splits=5):
+        """
+        Effectue une Validation Croisée (K-Fold) et analyse le surapprentissage.
+        Génère les graphiques Plotly comparant Train/Test.
+        """
+        print(f"\n[Validation Croisée] Évaluation Anti-Overfitting ({n_splits}-Folds)...")
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+        
+        models_to_evaluate = {
+            'Random Forest': RandomForestRegressor(n_estimators=100, max_depth=15, min_samples_split=5, min_samples_leaf=2, random_state=42, n_jobs=-1),
+            'XGBoost': __import__('xgboost').XGBRegressor(n_estimators=1000, learning_rate=0.05, max_depth=8, subsample=0.8, colsample_bytree=0.8, n_jobs=-1, random_state=42, tree_method='hist')
+        }
+        
+        cv_results = {}
+        
+        for name, model in models_to_evaluate.items():
+            print(f"  Évaluation de {name}...")
+            train_r2, test_r2 = [], []
+            train_rmse, test_rmse = [], []
+            train_mae, test_mae = [], []
+            
+            # Important: Reset index for proper KFold slicing if X is a DataFrame
+            X_cv = X.reset_index(drop=True) if isinstance(X, pd.DataFrame) else X
+            y_cv = y.reset_index(drop=True) if isinstance(y, pd.Series) else y
+            
+            for train_idx, test_idx in kf.split(X_cv):
+                # Slicing
+                X_tr, X_te = X_cv.iloc[train_idx], X_cv.iloc[test_idx]
+                y_tr, y_te = y_cv.iloc[train_idx], y_cv.iloc[test_idx]
+                
+                # Fit
+                if name == 'XGBoost':
+                     model.fit(X_tr, y_tr, eval_set=[(X_te, y_te)], verbose=False)
+                else:
+                     model.fit(X_tr, y_tr)
+                
+                # Predict
+                pred_tr = model.predict(X_tr)
+                pred_te = model.predict(X_te)
+                
+                # Metrics
+                train_r2.append(r2_score(y_tr, pred_tr))
+                test_r2.append(r2_score(y_te, pred_te))
+                
+                train_rmse.append(np.sqrt(mean_squared_error(y_tr, pred_tr)))
+                test_rmse.append(np.sqrt(mean_squared_error(y_te, pred_te)))
+                
+                train_mae.append(mean_absolute_error(y_tr, pred_tr))
+                test_mae.append(mean_absolute_error(y_te, pred_te))
+            
+            # Average results
+            avg_train_r2 = np.mean(train_r2)
+            avg_test_r2 = np.mean(test_r2)
+            overfit_gap = avg_train_r2 - avg_test_r2
+            
+            # Build Plotly Figure
+            fig = go.Figure()
+            categories = ['Train', 'Test']
+            
+            fig.add_trace(go.Bar(
+                name='R² Score',
+                x=categories,
+                y=[avg_train_r2, avg_test_r2],
+                marker_color=['#0EA5E9', '#10B981'],
+                text=[f"{avg_train_r2:.3f}", f"{avg_test_r2:.3f}"],
+                textposition='auto',
+            ))
+            
+            fig.update_layout(
+                title=f"Comparaison Train vs Test - {name}",
+                yaxis_title="Score R² (Plus proche de 1 est meilleur)",
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                barmode='group',
+                height=350,
+                margin=dict(l=20, r=20, t=40, b=20)
+            )
+            
+            cv_results[name] = {
+                'train_r2': avg_train_r2,
+                'test_r2': avg_test_r2,
+                'train_rmse': np.mean(train_rmse),
+                'test_rmse': np.mean(test_rmse),
+                'train_mae': np.mean(train_mae),
+                'test_mae': np.mean(test_mae),
+                'overfit_gap': overfit_gap,
+                'is_overfitting': overfit_gap > 0.10, # Seuil d'alerte défini par l'utilisateur
+                'plotly_fig': fig
+            }
+            
+        return cv_results
     
     def get_feature_importance(self, top_n=10):
         """
@@ -340,7 +430,10 @@ class ONPPricePredictor:
         else: # Pour les modèles basés sur les arbres, pas de scaling
             X_processed = X
             
-        preds = self.best_model.predict(X_processed)
+        preds_log = self.best_model.predict(X_processed)
+        
+        # Conversion Inverse (Back to DH/kg)
+        preds = np.expm1(preds_log)
         
         # Sécurité: Aucun prix ne peut être inférieur à 1 DH/kg
         return np.maximum(preds, 1.0)
@@ -366,7 +459,13 @@ class ONPPricePredictor:
                 df_encoded[col] = 0
                 
         X_new = df_encoded[self.feature_names].fillna(0)
-        y_new = df_encoded['prix_unitaire_dh']
+        y_new_log = np.log1p(df_encoded['prix_unitaire_dh'])
+        
+        # Transformation Logarithmique des features de prix
+        price_feats = ['prix_moyen_espece', 'prix_moyen_port', 'prix_moyen_region']
+        for col in price_feats:
+            if col in X_new.columns:
+                X_new[col] = np.log1p(X_new[col])
         
         # Appliquer le scaling si le modèle en a besoin
         if isinstance(self.best_model, LinearRegression):
@@ -378,11 +477,11 @@ class ONPPricePredictor:
         # Mise à jour incrémentale selon le modèle
         if self.best_model_name == 'Linear Regression':
             # La régression linéaire classique ne supporte pas le fit partiel, on réentraîne
-            self.best_model.fit(X_new_final, y_new)
+            self.best_model.fit(X_new_final, y_new_log)
         else:
             # Pour les modèles basés sur les arbres, on utilise le warm start ou un réentraînement rapide
             # Note: HistGradientBoosting ne supporte pas encore partial_fit, on réentraîne sur le nouveau buffer
-            self.best_model.fit(X_new_final, y_new)
+            self.best_model.fit(X_new_final, y_new_log)
             
         print(f"DONE: Modele {self.best_model_name} mis a jour avec {len(new_data_df)} lignes.")
         return True
@@ -427,17 +526,43 @@ class ONPPricePredictor:
         # 3. Features temporelles et saison
         df_one = create_features(df_one)
         
-        # 4. Injecter les moyennes historiques du df_ref (seulement si non déjà calculées par create_features)
-        if "volume_moyen_espece" not in df_one.columns or pd.isna(df_one["volume_moyen_espece"].iloc[0]):
-            df_one["volume_moyen_espece"] = df_ref[df_ref["espece"] == species]["volume_kg"].mean() if "volume_kg" in df_ref.columns else volume_kg
+        # 4. Injecter les moyennes historiques du df_ref (CRUCIAL pour la précision)
+        # On définit une fonction helper pour chercher la moyenne d'abord (Port, Espece), puis Region, puis Espece globale
+        def get_ref_val(col_target, group_cols):
+            try:
+                # Filtrer df_ref sur les colonnes de groupe
+                masks = [df_ref[c] == row[c] for c in group_cols]
+                final_mask = masks[0]
+                for m in masks[1:]: final_mask &= m
+                
+                sub_ref = df_ref[final_mask]
+                if not sub_ref.empty:
+                    return sub_ref[col_target].mean()
+            except:
+                pass
+            return np.nan
+
+        # Region
+        region = str(df_one["region"].iloc[0])
+        
+        # Injection des moyennes
+        if pd.isna(df_one.get("volume_moyen_espece", [np.nan])[0]):
+            df_one["volume_moyen_espece"] = get_ref_val("volume_kg", ["espece"]) or volume_kg
             
-        if "prix_moyen_port" not in df_one.columns or pd.isna(df_one["prix_moyen_port"].iloc[0]):
-            df_one["prix_moyen_port"] = df_ref[df_ref["port"] == port]["prix_unitaire_dh"].mean() if "prix_unitaire_dh" in df_ref.columns else 20.0
+        if pd.isna(df_one.get("prix_moyen_port", [np.nan])[0]):
+            df_one["prix_moyen_port"] = get_ref_val("prix_unitaire_dh", ["port"]) or 20.0
             
-        if "prix_moyen_espece" not in df_one.columns or pd.isna(df_one["prix_moyen_espece"].iloc[0]):
-            df_one["prix_moyen_espece"] = df_ref[df_ref["espece"] == species]["prix_unitaire_dh"].mean() if "prix_unitaire_dh" in df_ref.columns else 20.0
+        if pd.isna(df_one.get("prix_moyen_espece", [np.nan])[0]):
+            df_one["prix_moyen_espece"] = get_ref_val("prix_unitaire_dh", ["espece"]) or 20.0
             
-        # NOUVEAU: Recalculer les features dépendantes des moyennes pour éviter le biais du single-row
+        if pd.isna(df_one.get("prix_moyen_region", [np.nan])[0]):
+            # Region + Espece
+            val_reg = get_ref_val("prix_unitaire_dh", ["region", "espece"])
+            if pd.isna(val_reg):
+                val_reg = df_one["prix_moyen_espece"].iloc[0]
+            df_one["prix_moyen_region"] = val_reg
+            
+        # NOUVEAU: Recalculer les features dérivées
         df_one["log_volume_moyen"] = np.log1p(df_one["volume_moyen_espece"])
         df_one["ratio_volume"] = df_one["volume_kg"] / (df_one["volume_moyen_espece"] + 1)
             
@@ -453,15 +578,24 @@ class ONPPricePredictor:
             if col not in df_one.columns:
                 df_one[col] = 0
                 
-        X_final = df_one[self.feature_names]
+        X_final = df_one[self.feature_names].copy()
+        
+        # TRANSFORMATION LOGARITHMIQUE DES FEATURES (pour cohérence avec training)
+        price_feats = ['prix_moyen_espece', 'prix_moyen_port', 'prix_moyen_region']
+        for col in price_feats:
+            if col in X_final.columns:
+                X_final[col] = np.log1p(X_final[col])
         
         # Prédire (On ne scale plus pour HGBoost qui est le gagnant par défaut)
         try:
             if isinstance(self.best_model, LinearRegression):
                  X_scaled = self.scaler.transform(X_final)
-                 X_final = pd.DataFrame(X_scaled, columns=self.feature_names)
+                 X_final_proc = pd.DataFrame(X_scaled, columns=self.feature_names)
+            else:
+                 X_final_proc = X_final
             
-            pred = float(self.best_model.predict(X_final)[0])
+            pred_log = float(self.best_model.predict(X_final_proc)[0])
+            pred = np.expm1(pred_log)
         except Exception as e:
             # Fallback scaling if model was trained with it
             X_scaled = self.scaler.transform(X_final)
@@ -504,10 +638,10 @@ def train_and_save_model(data_path='donnees_simulation_onp.csv'):
     predictor = ONPPricePredictor()
     
     # Préparer les données
-    X_train, X_test, y_train, y_test = predictor.prepare_data(df)
+    X_train, X_test, y_train, y_test, X_train_scaled, X_test_scaled = predictor.prepare_data(df)
     
     # Entraîner les modèles
-    results = predictor.train_models(X_train, X_test, y_train, y_test)
+    results = predictor.train_models(X_train, X_test, y_train, y_test, X_train_scaled, X_test_scaled)
     
     # Afficher l'importance des features
     print("\nINFO: Importance des Features:")

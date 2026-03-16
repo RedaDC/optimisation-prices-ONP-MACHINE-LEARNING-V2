@@ -55,7 +55,10 @@ def calculate_revenue_by_species(df):
         pd.Series: Recettes par espèce (en DH)
     """
     df['recette'] = df['prix_unitaire_dh'] * df['volume_kg']
-    recette_espece = df.groupby('espece')['recette'].sum().sort_values(ascending=False)
+    # Filtrage des espèces non désirées (Inconnu, Autre, etc.)
+    unwanted = ['INCONNU', 'AUTRE', 'GROUPE INCONNU', 'AUTRES', 'INCONNUS']
+    mask = ~df['espece'].str.upper().str.strip().isin(unwanted)
+    recette_espece = df[mask].groupby('espece')['recette'].sum().sort_values(ascending=False)
     return recette_espece
 
 
@@ -139,11 +142,73 @@ def plot_top_profitable_species(df, top_n=15):
     
     fig.update_traces(texttemplate='%{text:.2f}M', textposition='outside')
     
-    fig.update_layout(
-        template=FINANCIAL_TEMPLATE,
-        height=600,
-        showlegend=False
+    return fig
+
+
+def plot_top_halles_revenue(df, top_n=20):
+    """
+    Graphique des Top N Halles les plus rentables (Exclut les MGs).
+    """
+    # Filtrer pour exclure les Marchés de Gros (MG)
+    mask = ~df['port'].str.contains('MG ', case=False, na=False)
+    df_halles = df[mask].copy()
+    
+    # Calculer la recette par port
+    recette_port = calculate_revenue_by_port(df_halles).head(top_n).reset_index()
+    recette_port['recette_m'] = recette_port['recette'] / 1_000_000
+    
+    fig = px.bar(
+        recette_port,
+        x='recette_m',
+        y='port',
+        orientation='h',
+        title=f'Top {top_n} des Halles les plus rentables',
+        labels={'port': 'Halle', 'recette_m': 'Recette (Millions DH)'},
+        color='recette_m',
+        color_continuous_scale='Blues',
+        text='recette_m'
     )
+    
+    fig.update_traces(texttemplate='%{text:.2f}M', textposition='outside')
+    fig.update_layout(template=FINANCIAL_TEMPLATE, height=600, showlegend=False)
+    
+    # Inverser l'axe Y pour avoir le premier en haut
+    fig.update_yaxes(autorange="reversed")
+    
+    return fig
+
+
+def plot_top_mgs_revenue(df, year=2025):
+    """
+    Graphique des Top Marchés de Gros (MG) les plus rentables pour une année donnée.
+    """
+    # Filtrer pour inclure uniquement les Marchés de Gros (MG)
+    mask = df['port'].str.contains('MG ', case=False, na=False)
+    if 'annee' in df.columns:
+        mask &= (df['annee'] == year)
+        
+    df_mgs = df[mask].copy()
+    
+    if df_mgs.empty:
+        return go.Figure().update_layout(title=f"Aucune donnée MG disponible pour {year}")
+        
+    # Calculer la recette par port
+    recette_port = df_mgs.groupby('port')['recette'].sum().sort_values(ascending=False).reset_index()
+    recette_port['recette_m'] = recette_port['recette'] / 1_000_000
+    
+    fig = px.bar(
+        recette_port,
+        x='port',
+        y='recette_m',
+        title=f'Performance des Marchés de Gros — Année {year}',
+        labels={'port': 'Marché de Gros', 'recette_m': 'Recette (Millions DH)'},
+        color='recette_m',
+        color_continuous_scale='Viridis',
+        text='recette_m'
+    )
+    
+    fig.update_traces(texttemplate='%{text:.2f}M', textposition='outside')
+    fig.update_layout(template=FINANCIAL_TEMPLATE, height=500, showlegend=False)
     
     return fig
 
