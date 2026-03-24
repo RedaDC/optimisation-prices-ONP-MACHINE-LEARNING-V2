@@ -35,16 +35,17 @@ venv.bak/
 .streamlit/
 ! .streamlit/config.toml
 
-# Data & CSVs (keep simulation data but ignore uploads/large reports)
-donnees_simulation_onp.csv
-! donnees_simulation_onp.csv
+# Data & CSVs
 *.csv
 *.xlsx
 *.xls
 *.docx
 *.jpeg
 *.png
-! logo onp.png
+!donnees_simulation_onp.csv
+!ca_reduction_2024_2025.csv
+!logo onp.png
+!ONP campany.jpeg
 outputs/
 reports/
 models/

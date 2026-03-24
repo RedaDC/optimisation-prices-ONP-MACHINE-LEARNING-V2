@@ -102,7 +102,7 @@ USERS = {
         "name": "Gestionnaire DP"
     },
     "crieur": {
-        "password": hash_password("crieur123"),
+        "password": hash_password("crieur1234"),
         "role": "crieur",
         "name": "Crieur Halle"
     }
@@ -3071,7 +3071,12 @@ def main():
 
     st.sidebar.markdown("---")
     st.sidebar.markdown(f"#### {LuxIcons.render('shield', size=20, color='#0EA5E9')} Pulse Marché", unsafe_allow_html=True)
-    recent_data = df_filtered.tail(100) if not df_filtered.empty else df.tail(100)
+    # Sécuriser si df est None (échec de chargement)
+    if df is None:
+        st.error("ERREUR CRITIQUE : Le fichier de données est introuvable ou corrompu. Veuillez vérifier la présence de 'donnees_simulation_onp.csv'.")
+        st.stop()
+        
+    recent_data = df_filtered.tail(100) if (df_filtered is not None and not df_filtered.empty) else df.tail(100)
     market_alerts = get_market_saturation_alerts(recent_data)
     if market_alerts:
         for alert in market_alerts:
