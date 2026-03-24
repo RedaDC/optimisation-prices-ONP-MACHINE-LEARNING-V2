@@ -87,38 +87,50 @@ import hashlib
 @st.cache_data(ttl=3600)
 def load_official_comparison_data():
     try:
-        # Essayer plusieurs fichiers possibles pour la synthèse DR
+        # Priorité aux fichiers de données officiels
         files_to_try = [
             'Extraction_2024_2025_traitee.xlsx',
             'New Report(2024-2025) -DR (3).xlsx'
         ]
         
-        df_feuil1 = pd.DataFrame()
-        
         for f in files_to_try:
             if os.path.exists(f):
                 try:
-                    # Chercher Feuil1 ou Feuil6 ou RECAP
                     xl = pd.ExcelFile(f)
-                    sheet = 'Feuil1' if 'Feuil1' in xl.sheet_names else ('Feuil6' if 'Feuil6' in xl.sheet_names else xl.sheet_names[0])
+                    # Priorité à Feuil6 (Synthèse détaillée) puis Feuil1
+                    target_sheets = ['Feuil6', 'Feuil1', 'extraction retraitée VF', 'RECAP']
+                    sheet = next((s for s in target_sheets if s in xl.sheet_names), xl.sheet_names[0])
+                    
                     df = pd.read_excel(f, sheet_name=sheet)
                     
-                    # Normalisation
-                    df.columns = [str(c).upper().strip() for c in df.columns]
+                    # Normalisation agressive des colonnes
+                    df.columns = [str(c).upper().strip().replace('  ', ' ') for c in df.columns]
+                    
+                    # Mapping étendu pour couvrir toutes les variantes observées
                     col_map = {
-                        'CA2024(KDH)': 'CA2024(KDh)', 'CA (KDH) 2024': 'CA2024(KDh)',
-                        'CA2025(KDH)': 'CA2025(KDh)', 'CA (KDH) 2025': 'CA2025(KDh)',
-                        'VARIATION(KDH)': 'VARIATION(KDh)', 'VARIATION.1': 'VARIATION(KDh)',
-                        'DELEGATION': 'DR', 'REGION': 'DR'
+                        'DR/ESPECE': 'DR', 'DR / ESPECE': 'DR', 'DELEGATION': 'DR', 'REGION': 'DR',
+                        'CA (KDH) 2024': 'CA2024(KDh)', 'CA (KDh) 2024': 'CA2024(KDh)', 
+                        'CA2024(KDH)': 'CA2024(KDh)', 'CA2024(KDH)': 'CA2024(KDh)',
+                        'CA (KDH) 2025': 'CA2025(KDh)', 'CA (KDh) 2025': 'CA2025(KDh)',
+                        'CA2025(KDH)': 'CA2025(KDh)', 'CA2025(KDH)': 'CA2025(KDh)',
+                        'VARIATION.1': 'VARIATION(KDh)', 'VARIATION(KDH)': 'VARIATION(KDh)',
+                        'PORT': 'PORT'
                     }
                     df = df.rename(columns=col_map)
                     
+                    # Vérification de la présence des colonnes minimales
                     if 'CA2024(KDh)' in df.columns:
+                        # Si c'est Feuil6, on nettoie les noms de DR
+                        if sheet == 'Feuil6' and 'DR' in df.columns:
+                            # Marquer les lignes qui sont probablement des DR (codes courts)
+                            df['IS_DR'] = df['DR'].apply(lambda x: len(str(x)) <= 5 and str(x).isupper() if pd.notnull(x) else False)
                         return df
-                except:
+                except Exception as ex:
+                    print(f"DEBUG: Erreur sur {f} : {ex}")
                     continue
         return pd.DataFrame()
-    except:
+    except Exception as e:
+        print(f"DEBUG Error outer: {e}")
         return pd.DataFrame()
 
 # ==================== CONFIGURATION ====================
@@ -2290,9 +2302,13 @@ def render_page_diminution_ca(df_default):
                 
                 # Filtrage pour ne garder que les lignes de DR (données agrégées ou lignes propres)
                 if 'DR' in df_feuil1.columns:
-                    df_dr_only = df_feuil1[~df_feuil1['DR'].astype(str).str.contains('Total|Maroc', na=False, case=False)]
+                    if 'IS_DR' in df_feuil1.columns:
+                        # Priorité au flag intelligent de détection de DR
+                        df_dr_only = df_feuil1[df_feuil1['IS_DR'] == True].copy()
+                    else:
+                        df_dr_only = df_feuil1[~df_feuil1['DR'].astype(str).str.contains('Total|Maroc', na=False, case=False)].copy()
                 else:
-                    df_dr_only = df_feuil1
+                    df_dr_only = df_feuil1.copy()
                 
                 # Supprimer les lignes où CA est nul (car Feuil6 contient des espèces sous les DR)
                 df_dr_only = df_dr_only[df_dr_only['CA2024(KDh)'] > 0]
