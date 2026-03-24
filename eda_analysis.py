@@ -250,9 +250,10 @@ def plot_top_species_by_volume(df, top_n=10):
     )
     
     fig.update_traces(
-        texttemplate='%{text:.0f} T', 
         textposition='inside',
-        textfont=dict(size=12, color="white", family="Outfit")
+        texttemplate='%{text:.1f} T',
+        textfont=dict(size=12, color="white", family="Outfit"),
+        marker=dict(line=dict(color='#0F172A', width=2))
     )
     
     fig.update_layout(
@@ -305,8 +306,12 @@ def plot_regional_activity_heatmap(df):
         colorscale='Viridis',
         text=np.round(z_tonnes, 1),
         texttemplate='%{text}',
-        textfont={"size": 11, "family": "Outfit"},
-        colorbar=dict(title="Volume (T)", thickness=15),
+        textfont={"size": 11, "family": "Outfit", "color": "white"},
+        colorbar=dict(
+            title=dict(text="Vol (T)", font=dict(color="white")),
+            thickness=15,
+            tickfont=dict(color="white")
+        ),
         hovertemplate="Région: %{y}<br>Mois: %{x}<br>Volume: %{z:.1f} T<extra></extra>"
     ))
     

@@ -182,8 +182,17 @@ def plot_top_halles_revenue(df, top_n=20):
         text='recette_m'
     )
     
-    fig.update_traces(texttemplate='%{text:.2f}M', textposition='outside')
-    fig.update_layout(template=FINANCIAL_TEMPLATE, height=600, showlegend=False)
+    fig.update_traces(
+        texttemplate='%{text:.1f} M', 
+        textposition='outside',
+        textfont=dict(size=12, color="white", family="Outfit")
+    )
+    fig.update_layout(
+        template=FINANCIAL_TEMPLATE, 
+        height=600, 
+        showlegend=False,
+        margin=dict(l=100)
+    )
     
     # Inverser l'axe Y pour avoir le premier en haut
     fig.update_yaxes(autorange="reversed")
@@ -223,8 +232,16 @@ def plot_top_mgs_revenue(df, year=2025):
         text='recette_m'
     )
     
-    fig.update_traces(texttemplate='%{text:.2f}M', textposition='outside')
-    fig.update_layout(template=FINANCIAL_TEMPLATE, height=500, showlegend=False)
+    fig.update_traces(
+        texttemplate='%{text:.1f} M', 
+        textposition='outside',
+        textfont=dict(size=12, color="white", family="Outfit")
+    )
+    fig.update_layout(
+        template=FINANCIAL_TEMPLATE, 
+        height=500, 
+        showlegend=False
+    )
     
     return fig
 
