@@ -83,6 +83,44 @@ from onp_assets import (
 from pdf_utils import generate_reduction_pdf
 import hashlib
 
+# --- CHARGEMENT DES DONNÉES CACHÉES (POUR STABILITÉ CLOUD) ---
+@st.cache_data(ttl=3600)
+def load_official_comparison_data():
+    try:
+        # Essayer plusieurs fichiers possibles pour la synthèse DR
+        files_to_try = [
+            'Extraction_2024_2025_traitee.xlsx',
+            'New Report(2024-2025) -DR (3).xlsx'
+        ]
+        
+        df_feuil1 = pd.DataFrame()
+        
+        for f in files_to_try:
+            if os.path.exists(f):
+                try:
+                    # Chercher Feuil1 ou Feuil6 ou RECAP
+                    xl = pd.ExcelFile(f)
+                    sheet = 'Feuil1' if 'Feuil1' in xl.sheet_names else ('Feuil6' if 'Feuil6' in xl.sheet_names else xl.sheet_names[0])
+                    df = pd.read_excel(f, sheet_name=sheet)
+                    
+                    # Normalisation
+                    df.columns = [str(c).upper().strip() for c in df.columns]
+                    col_map = {
+                        'CA2024(KDH)': 'CA2024(KDh)', 'CA (KDH) 2024': 'CA2024(KDh)',
+                        'CA2025(KDH)': 'CA2025(KDh)', 'CA (KDH) 2025': 'CA2025(KDh)',
+                        'VARIATION(KDH)': 'VARIATION(KDh)', 'VARIATION.1': 'VARIATION(KDh)',
+                        'DELEGATION': 'DR', 'REGION': 'DR'
+                    }
+                    df = df.rename(columns=col_map)
+                    
+                    if 'CA2024(KDh)' in df.columns:
+                        return df
+                except:
+                    continue
+        return pd.DataFrame()
+    except:
+        return pd.DataFrame()
+
 # ==================== CONFIGURATION ====================
 # Déjà effectuée au début du script pour compatibilité Cloud
 
@@ -2241,42 +2279,8 @@ def render_page_diminution_ca(df_default):
         st.markdown("<br>", unsafe_allow_html=True)
         col_left, col_right = st.columns([1, 1])
         
-        # --- GLOBAL DATA EXTRACTION FROM OFFICIAL EXCEL FOR TABS ---
-        try:
-            # Essayer plusieurs fichiers possibles pour la synthèse DR
-            files_to_try = [
-                'New Report(2024-2025) -DR (3).xlsx',
-                'Extraction_2024_2025_traitee.xlsx'
-            ]
-            
-            df_feuil1 = pd.DataFrame()
-            success_file = None
-            
-            for f in files_to_try:
-                if os.path.exists(f):
-                    try:
-                        # Chercher Feuil1 ou Feuil6 ou RECAP
-                        xl = pd.ExcelFile(f)
-                        sheet = 'Feuil1' if 'Feuil1' in xl.sheet_names else ('Feuil6' if 'Feuil6' in xl.sheet_names else xl.sheet_names[0])
-                        df_feuil1 = pd.read_excel(f, sheet_name=sheet)
-                        
-                        # Normalisation des colonnes (Gestion des espaces et parenthèses)
-                        df_feuil1.columns = [str(c).upper().strip() for c in df_feuil1.columns]
-                        
-                        # Mapping intelligent des colonnes
-                        col_map = {
-                            'CA2024(KDH)': 'CA2024(KDh)', 'CA (KDH) 2024': 'CA2024(KDh)',
-                            'CA2025(KDH)': 'CA2025(KDh)', 'CA (KDH) 2025': 'CA2025(KDh)',
-                            'VARIATION(KDH)': 'VARIATION(KDh)', 'VARIATION.1': 'VARIATION(KDh)',
-                            'DELEGATION': 'DR', 'REGION': 'DR'
-                        }
-                        df_feuil1 = df_feuil1.rename(columns=col_map)
-                        
-                        if 'CA2024(KDh)' in df_feuil1.columns:
-                            success_file = f
-                            break
-                    except:
-                        continue
+            # Utiliser la fonction cachee pour charger les données
+            df_feuil1 = load_official_comparison_data()
             
             if not df_feuil1.empty:
                 df_feuil1['CA2024(KDh)'] = pd.to_numeric(df_feuil1['CA2024(KDh)'], errors='coerce').fillna(0)
