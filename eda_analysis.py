@@ -367,10 +367,9 @@ def plot_port_activity_heatmap(df):
         texttemplate='%{text}',
         textfont={"size": 10, "family": "Outfit", "color": "white"},
         colorbar=dict(
-            title="Volume (T)",
+            title=dict(text="Volume (T)", font=dict(color="white")),
             thickness=15,
             len=0.8,
-            titlefont=dict(color="white"),
             tickfont=dict(color="white")
         ),
         hovertemplate="Port: %{y}<br>Mois: %{x}<br>Volume: %{z:.1f} T<extra></extra>"
