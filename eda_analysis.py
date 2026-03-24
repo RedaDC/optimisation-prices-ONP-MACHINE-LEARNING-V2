@@ -320,8 +320,14 @@ def plot_regional_activity_heatmap(df):
             text='Vue Régionale : Activité Halieutique (Tonnes)',
             font=dict(size=18, family="Outfit", color="#0F172A")
         ),
-        xaxis=dict(title=None),
-        yaxis=dict(title=None),
+        xaxis=dict(
+            title=dict(text='Mois', font=dict(color="#0F172A")),
+            tickfont=dict(color="#0F172A", size=10)
+        ),
+        yaxis=dict(
+            title=dict(text='Régions / Délégations', font=dict(color="#0F172A")),
+            tickfont=dict(color="#0F172A", size=10)
+        ),
         margin=dict(l=40, r=40, t=60, b=40),
         height=400,
         template=ONP_TEMPLATE
@@ -398,13 +404,11 @@ def plot_port_activity_heatmap(df):
             font=dict(size=18, family="Outfit", color="#0F172A")
         ),
         xaxis=dict(
-            title='Mois de l\'année', 
-            titlefont=dict(color="#0F172A"),
+            title=dict(text='Mois', font=dict(color="#0F172A")),
             tickfont=dict(color="#0F172A", size=10)
         ),
         yaxis=dict(
-            title='Ports', 
-            titlefont=dict(color="#0F172A"),
+            title=dict(text='Ports', font=dict(color="#0F172A")),
             tickfont=dict(color="#0F172A", size=10)
         ),
         margin=dict(l=40, r=40, t=60, b=40),

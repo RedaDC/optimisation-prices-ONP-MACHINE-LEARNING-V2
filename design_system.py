@@ -247,7 +247,7 @@ def apply_premium_plotly_styling(fig: go.Figure) -> go.Figure:
         hovermode="x unified",
         margin={"l": 40, "r": 20, "t": 60, "b": 40},
         colorway=["#0369A1", "#0891B2", "#0D9488", "#7C3AED"], # Couleurs professionnelles sur fond blanc
-        title_font={"color": "#0F172A", "size": 18}
+        title=dict(font=dict(color="#0F172A", size=18))
     )
     fig.update_xaxes(
         showgrid=True, 
