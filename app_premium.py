@@ -1022,12 +1022,12 @@ def render_live_market_pulse(df):
         with col:
             activity_color = "#10B981" if port['activity'] > 70 else ("#0EA5E9" if port['activity'] > 50 else "#94A3B8")
             st.markdown(f"""
-            <div class="metric-card" style="border-top: 3px solid {activity_color}; padding: 1.5rem;">
+            <div class="metric-card" style="border-top: 3px solid {activity_color}; padding: 1.5rem; background: white; border: 1px solid #E2E8F0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                     <span style="background: {activity_color}; width: 10px; height: 10px; border-radius: 50%;"></span>
-                    <span style="font-size: 0.7rem; font-weight: 800; color: #94A3B8; text-transform: uppercase;">Port Actif</span>
+                    <span style="font-size: 0.7rem; font-weight: 800; color: #64748B; text-transform: uppercase;">Port Actif</span>
                 </div>
-                <h4 style="margin: 0; color: #F8FAFC; font-size: 1.25rem; font-weight: 800;">{port['name']}</h4>
+                <h4 style="margin: 0; color: #0F172A; font-size: 1.25rem; font-weight: 800;">{port['name']}</h4>
                 <div style="margin-top: 1rem; display: flex; align-items: baseline; gap: 8px;">
                     <span style="font-size: 1.5rem; font-weight: 700; color: {activity_color};">{port['vol']}</span>
                     <span style="font-size: 0.8rem; color: #64748B;">/ jour</span>
@@ -1077,8 +1077,8 @@ def render_onp_secteur_section():
             "anchor"
         )
         st.markdown(
-            f'<div style="background: rgba(15, 23, 42, 0.6); padding: 2.5rem; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.2);">'
-            f'<p style="color: #CBD5E1; line-height: 1.8; font-size: 1.15rem; font-weight: 400; margin: 0;">{ONP_EDITO}</p></div>',
+            f'<div style="background: white; padding: 2.5rem; border-radius: 24px; border: 1px solid #E2E8F0; box-shadow: 0 10px 30px rgba(0,0,0,0.03);">'
+            f'<p style="color: #475569; line-height: 1.8; font-size: 1.15rem; font-weight: 400; margin: 0;">{ONP_EDITO}</p></div>',
             unsafe_allow_html=True
         )
         st.markdown(
@@ -1148,8 +1148,8 @@ def render_maritime_showcase():
             "anchor"
         )
         st.markdown(f"""
-        <div style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px); padding: 2.5rem; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.1); margin-top: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-            <p style="font-size: 1.15rem; color: #F8FAFC; line-height: 1.8; margin: 0; font-weight: 500;">
+        <div style="background: white; padding: 2.5rem; border-radius: 20px; border: 1px solid #E2E8F0; margin-top: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+            <p style="font-size: 1.15rem; color: #0F172A; line-height: 1.8; margin: 0; font-weight: 500;">
                 Le secteur de la pêche maritime constitue un pilier stratégique du Royaume. 
                 Avec plus de 3 500 km de côtes, le Maroc se positionne comme le premier producteur de poissons en Afrique 
                 et assure une souveraineté halieutique durable.
@@ -1180,19 +1180,19 @@ def render_national_dashboard():
     with f_col1:
         price_nc = get_real_fuel_price(region="CENTRE")
         st.markdown(f"""
-        <div style="background: rgba(15, 23, 42, 0.7); padding: 20px; border-radius: 15px; border-top: 4px solid #F59E0B; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);">
-            <p style="margin:0; font-size: 0.8rem; color: #94A3B8; font-weight: 700;">NORD & CENTRE</p>
-            <p style="margin:5px 0; font-size: 1.8rem; font-weight: 900; color: #F59E0B;">{price_nc:.2f} <span style="font-size: 1rem;">DH/L</span></p>
-            <p style="margin:0; font-size: 0.8rem; color: #64748B;">Régime Standard</p>
+        <div style="background: white; padding: 20px; border-radius: 15px; border-top: 4px solid #F59E0B; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size: 0.8rem; color: #64748B; font-weight: 700;">NORD & CENTRE</p>
+            <p style="margin:5px 0; font-size: 1.8rem; font-weight: 900; color: #B45309;">{price_nc:.2f} <span style="font-size: 1rem;">DH/L</span></p>
+            <p style="margin:0; font-size: 0.8rem; color: #94A3B8;">Régime Standard</p>
         </div>
         """, unsafe_allow_html=True)
     with f_col2:
         price_gs = get_real_fuel_price(region="GRAND_SUD")
         st.markdown(f"""
-        <div style="background: rgba(15, 23, 42, 0.7); padding: 20px; border-radius: 15px; border-top: 4px solid #10B981; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);">
-            <p style="margin:0; font-size: 0.8rem; color: #94A3B8; font-weight: 700;">PROVINCES DU SUD (DAKHLA/LAAYOUNE)</p>
-            <p style="margin:5px 0; font-size: 1.8rem; font-weight: 900; color: #10B981;">{price_gs:.2f} <span style="font-size: 1rem;">DH/L</span></p>
-            <p style="margin:0; font-size: 0.8rem; color: #10B981; font-weight: 600;">Exonération (Détaxé)</p>
+        <div style="background: white; padding: 20px; border-radius: 15px; border-top: 4px solid #10B981; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <p style="margin:0; font-size: 0.8rem; color: #64748B; font-weight: 700;">PROVINCES DU SUD (DAKHLA/LAAYOUNE)</p>
+            <p style="margin:5px 0; font-size: 1.8rem; font-weight: 900; color: #065F46;">{price_gs:.2f} <span style="font-size: 1rem;">DH/L</span></p>
+            <p style="margin:0; font-size: 0.8rem; color: #059669; font-weight: 600;">Exonération (Détaxé)</p>
         </div>
         """, unsafe_allow_html=True)
 

@@ -20,13 +20,13 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
-# Template Plotly financier professionnel (ONP Premium - Dark Mode Ready)
+# Template Plotly financier professionnel (ONP Premium - Light Mode Ready)
 FINANCIAL_TEMPLATE = go.layout.Template()
-FINANCIAL_TEMPLATE.layout.plot_bgcolor = 'rgba(15, 23, 42, 0.5)'
+FINANCIAL_TEMPLATE.layout.plot_bgcolor = 'white'
 FINANCIAL_TEMPLATE.layout.paper_bgcolor = 'rgba(0,0,0,0)'
-FINANCIAL_TEMPLATE.layout.font = {'family': "Outfit, sans-serif", 'color': "#FFFFFF"}
+FINANCIAL_TEMPLATE.layout.font = {'family': "Outfit, sans-serif", 'color': "#0F172A"}
 # Palette Halieutis: Deep Navy, Emerald, Gold, Azure
-FINANCIAL_TEMPLATE.layout.colorway = ["#38BDF8", "#10B981", "#FFD700", "#6366F1", "#F472B6"]
+FINANCIAL_TEMPLATE.layout.colorway = ["#0369A1", "#0891B2", "#0D9488", "#7C3AED", "#6366F1"]
 
 
 def calculate_revenue_by_port(df):
@@ -81,12 +81,10 @@ def plot_revenue_by_port(df):
         text='recette_m'
     )
     
-    fig.update_traces(texttemplate='%{text:.2f}M', textposition='outside')
-    
     fig.update_traces(
         texttemplate='%{text:.1f} M', 
         textposition='outside',
-        textfont=dict(size=11, color="white")
+        textfont=dict(size=11, color="#0F172A", family="Outfit")
     )
     
     fig.update_layout(
@@ -116,7 +114,7 @@ def plot_revenue_contribution_by_species(df, top_n=10):
     fig.update_traces(
         textposition='inside',
         textinfo='percent+label',
-        textfont_size=12
+        textfont=dict(size=12, color="#0F172A", family="Outfit")
     )
     
     fig.update_layout(
@@ -150,10 +148,8 @@ def plot_top_profitable_species(df, top_n=15):
     fig.update_traces(
         texttemplate='%{text:.1f} M', 
         textposition='outside',
-        textfont=dict(size=11, color="white")
+        textfont=dict(size=11, color="#0F172A", family="Outfit")
     )
-    
-    fig.update_traces(texttemplate='%{text:.2f}M', textposition='outside')
     
     return fig
 
@@ -185,7 +181,7 @@ def plot_top_halles_revenue(df, top_n=20):
     fig.update_traces(
         texttemplate='%{text:.1f} M', 
         textposition='outside',
-        textfont=dict(size=12, color="white", family="Outfit")
+        textfont=dict(size=12, color="#0F172A", family="Outfit")
     )
     fig.update_layout(
         template=FINANCIAL_TEMPLATE, 
@@ -235,7 +231,7 @@ def plot_top_mgs_revenue(df, year=2025):
     fig.update_traces(
         texttemplate='%{text:.1f} M', 
         textposition='outside',
-        textfont=dict(size=12, color="white", family="Outfit")
+        textfont=dict(size=12, color="#0F172A", family="Outfit")
     )
     fig.update_layout(
         template=FINANCIAL_TEMPLATE, 

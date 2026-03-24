@@ -96,11 +96,11 @@ def inject_css_styles():
             box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3) !important;
         }
 
-        /* ============= HERO BANNER (FORCE WHITE TEXT) ============= */
+        /* ============= HERO BANNER (ADAPTÉ AU THÈME CLAIR) ============= */
         .hero-title, .hero-label, .hero-description, 
         .hero-container div, .hero-container p, .hero-container span {
-            color: #FFFFFF !important;
-            text-shadow: 0 4px 15px rgba(0,0,0,0.8) !important;
+            color: #0F172A !important;
+            text-shadow: none !important;
         }
 
         /* ============= TITRES (RETOUR AU BLEU MARINE INSTITUTIONNEL) ============= */
@@ -239,27 +239,27 @@ class LuxIcons:
 
 # ==================== MODÈLES PLOTLY INSTITUTIONNELS ====================
 def apply_premium_plotly_styling(fig: go.Figure) -> go.Figure:
-    """Style Plotly Premium (Foncé) pour une lisibilité maximale"""
+    """Style Plotly Premium (Clair) pour une lisibilité maximale"""
     fig.update_layout(
-        plot_bgcolor="rgba(15, 23, 42, 0.5)", # Slate-900 transparent
+        plot_bgcolor="white",
         paper_bgcolor="rgba(0,0,0,0)",
-        font={"family": "Outfit, sans-serif", "size": 12, "color": "#FFFFFF"},
+        font={"family": "Outfit, sans-serif", "size": 12, "color": "#0F172A"},
         hovermode="x unified",
         margin={"l": 40, "r": 20, "t": 60, "b": 40},
-        colorway=["#38BDF8", "#10B981", "#F59E0B", "#EF4444"], # Couleurs plus vives pour le sombre
-        title_font={"color": "#FFFFFF", "size": 18}
+        colorway=["#0369A1", "#0891B2", "#0D9488", "#7C3AED"], # Couleurs professionnelles sur fond blanc
+        title_font={"color": "#0F172A", "size": 18}
     )
     fig.update_xaxes(
         showgrid=True, 
-        gridcolor="rgba(255, 255, 255, 0.1)", 
+        gridcolor="#F1F5F9", 
         zeroline=False,
-        tickfont=dict(color="white")
+        tickfont=dict(color="#1E293B")
     )
     fig.update_yaxes(
         showgrid=True, 
-        gridcolor="rgba(255, 255, 255, 0.1)", 
+        gridcolor="#F1F5F9", 
         zeroline=False,
-        tickfont=dict(color="white")
+        tickfont=dict(color="#1E293B")
     )
     return fig
 

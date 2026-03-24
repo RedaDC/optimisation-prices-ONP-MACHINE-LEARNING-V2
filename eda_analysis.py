@@ -23,13 +23,13 @@ import matplotlib.pyplot as plt
 from utils import REGION_MAP
 
 
-# Template Plotly professionnel (couleurs ONP Premium - Dark Mode Ready)
+# Template Plotly professionnel (couleurs ONP Premium - Light Mode Ready)
 ONP_TEMPLATE = go.layout.Template()
-ONP_TEMPLATE.layout.plot_bgcolor = 'rgba(15, 23, 42, 0.5)'
+ONP_TEMPLATE.layout.plot_bgcolor = 'white'
 ONP_TEMPLATE.layout.paper_bgcolor = 'rgba(0,0,0,0)'
-ONP_TEMPLATE.layout.font = {'family': "Outfit, sans-serif", 'color': "#FFFFFF"}
-# Palette Halieutis Excellence: Bright Blue, Emerald, Gold, Azure
-ONP_TEMPLATE.layout.colorway = ["#38BDF8", "#10B981", "#FFD700", "#6366F1", "#F472B6"]
+ONP_TEMPLATE.layout.font = {'family': "Outfit, sans-serif", 'color': "#0F172A"}
+# Palette Halieutis Excellence: Deep Navy, Emerald, Gold, Azure
+ONP_TEMPLATE.layout.colorway = ["#0369A1", "#0891B2", "#0D9488", "#7C3AED", "#6366F1"]
 
 
 def plot_price_distribution_by_species(df):
@@ -85,7 +85,7 @@ def plot_price_by_port(df):
     fig.update_traces(
         texttemplate='%{text:.1f} DH', 
         textposition='outside',
-        textfont=dict(size=11, color="white")
+        textfont=dict(size=11, color="#0F172A")
     )
     
     fig.update_layout(
@@ -172,7 +172,7 @@ def plot_seasonal_analysis(df):
     fig.update_layout(
         title=dict(
             text='Saisonnalité des Prix Moyens',
-            font=dict(size=18, family="Outfit", color="#FFFFFF")
+            font=dict(size=18, family="Outfit", color="#0F172A")
         ),
         xaxis=dict(title=None, showgrid=False),
         yaxis=dict(title='Prix (DH/kg)', gridcolor='rgba(226, 232, 240, 0.4)'),
@@ -253,7 +253,7 @@ def plot_top_species_by_volume(df, top_n=10):
         textposition='inside',
         texttemplate='%{text:.1f} T',
         textfont=dict(size=12, color="white", family="Outfit"),
-        marker=dict(line=dict(color='#0F172A', width=2))
+        marker=dict(line=dict(color='#FFFFFF', width=1))
     )
     
     fig.update_layout(
@@ -318,7 +318,7 @@ def plot_regional_activity_heatmap(df):
     fig.update_layout(
         title=dict(
             text='Vue Régionale : Activité Halieutique (Tonnes)',
-            font=dict(size=18, family="Outfit", color="#FFFFFF")
+            font=dict(size=18, family="Outfit", color="#0F172A")
         ),
         xaxis=dict(title=None),
         yaxis=dict(title=None),
@@ -382,12 +382,12 @@ def plot_port_activity_heatmap(df):
         colorscale='Viridis',
         text=np.round(z_tonnes, 1),
         texttemplate='%{text}',
-        textfont={"size": 10, "family": "Outfit", "color": "white"},
+        textfont={"size": 10, "family": "Outfit", "color": "#0F172A"},
         colorbar=dict(
-            title=dict(text="Volume (T)", font=dict(color="white")),
+            title=dict(text="Volume (T)", font=dict(color="#0F172A")),
             thickness=15,
             len=0.8,
-            tickfont=dict(color="white")
+            tickfont=dict(color="#0F172A")
         ),
         hovertemplate="Port: %{y}<br>Mois: %{x}<br>Volume: %{z:.1f} T<extra></extra>"
     ))
@@ -395,17 +395,17 @@ def plot_port_activity_heatmap(df):
     fig.update_layout(
         title=dict(
             text='Top 10 Ports : Activité Mensuelle (Tonnes)',
-            font=dict(size=18, family="Outfit", color="#FFFFFF")
+            font=dict(size=18, family="Outfit", color="#0F172A")
         ),
         xaxis=dict(
             title='Mois de l\'année', 
-            titlefont=dict(color="white"),
-            tickfont=dict(color="white", size=10)
+            titlefont=dict(color="#0F172A"),
+            tickfont=dict(color="#0F172A", size=10)
         ),
         yaxis=dict(
             title='Ports', 
-            titlefont=dict(color="white"),
-            tickfont=dict(color="white", size=10)
+            titlefont=dict(color="#0F172A"),
+            tickfont=dict(color="#0F172A", size=10)
         ),
         margin=dict(l=40, r=40, t=60, b=40),
         height=500,
