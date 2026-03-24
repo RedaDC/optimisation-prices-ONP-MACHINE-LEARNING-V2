@@ -15,6 +15,15 @@ Fonctionnalités:
 # ONP Premium v2.0 - Concept & Architecture par Reda Abousaid
 # Reload trigger: Alignement Rapport DR 2024-2025
 import streamlit as st
+
+# ==================== CONFIGURATION (DOIT ÊTRE AU DÉBUT) ====================
+st.set_page_config(
+    page_title="ONP - Optimisation des Prix",
+    page_icon=None,
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -75,12 +84,7 @@ from pdf_utils import generate_reduction_pdf
 import hashlib
 
 # ==================== CONFIGURATION ====================
-st.set_page_config(
-    page_title="ONP - Optimisation des Prix",
-    page_icon=None,
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Déjà effectuée au début du script pour compatibilité Cloud
 
 # Injecter les styles premium
 inject_css_styles()
@@ -2242,7 +2246,7 @@ def render_page_diminution_ca(df_default):
             # Essayer plusieurs fichiers possibles pour la synthèse DR
             files_to_try = [
                 'New Report(2024-2025) -DR (3).xlsx',
-                'Extraction 2024-2025-traitée avec variation.xlsx'
+                'Extraction_2024_2025_traitee.xlsx'
             ]
             
             df_feuil1 = pd.DataFrame()
