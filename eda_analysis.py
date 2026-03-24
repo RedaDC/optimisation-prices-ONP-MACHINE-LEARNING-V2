@@ -75,10 +75,10 @@ def plot_price_by_port(df):
         prix_moyen,
         x='port',
         y='prix_unitaire_dh',
-        title='Prix moyen par port',
+        title='Top 10 Ports : Analyse des Prix Moyens',
         labels={'port': 'Port', 'prix_unitaire_dh': 'Prix Moyen (DH/kg)'},
         color='prix_unitaire_dh',
-        color_continuous_scale='Blues',
+        color_continuous_scale='Solar', # Plus visible sur fond sombre
         template=ONP_TEMPLATE
     )
     
@@ -239,7 +239,8 @@ def plot_top_species_by_volume(df, top_n=10):
         title=f'Top {top_n} espèces par volume',
         labels={'volume_tonnes': 'Volume Total (Tonnes)', 'espece': 'Espèce'},
         color='volume_kg',
-        color_continuous_scale='Greens'
+        color_continuous_scale='Plasma', # Plus vibrant sur fond sombre
+        template=ONP_TEMPLATE
     )
     
     fig.update_layout(
@@ -299,7 +300,7 @@ def plot_regional_activity_heatmap(df):
     
     fig.update_layout(
         title=dict(
-            text='Activité Halieutique par Région (Tonnes)',
+            text='Vue Régionale : Activité Halieutique (Tonnes)',
             font=dict(size=18, family="Outfit", color="#FFFFFF")
         ),
         xaxis=dict(title=None),
