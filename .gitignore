@@ -52,6 +52,7 @@ models/
 
 # Logs & Temp
 *.txt
+!runtime.txt
 *.log
 debug_*.py
 test_*.py
