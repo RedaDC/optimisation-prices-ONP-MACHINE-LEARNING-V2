@@ -83,6 +83,12 @@ def plot_revenue_by_port(df):
     
     fig.update_traces(texttemplate='%{text:.2f}M', textposition='outside')
     
+    fig.update_traces(
+        texttemplate='%{text:.1f} M', 
+        textposition='outside',
+        textfont=dict(size=11, color="white")
+    )
+    
     fig.update_layout(
         template=FINANCIAL_TEMPLATE,
         showlegend=False,
@@ -137,7 +143,14 @@ def plot_top_profitable_species(df, top_n=15):
         labels={'recette_m': 'Recette (Millions DH)', 'espece': 'Espèce'},
         color='recette_m',
         color_continuous_scale='Greens',
-        text='recette_m'
+        text='recette_m',
+        template=FINANCIAL_TEMPLATE
+    )
+    
+    fig.update_traces(
+        texttemplate='%{text:.1f} M', 
+        textposition='outside',
+        textfont=dict(size=11, color="white")
     )
     
     fig.update_traces(texttemplate='%{text:.2f}M', textposition='outside')

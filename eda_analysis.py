@@ -77,9 +77,15 @@ def plot_price_by_port(df):
         y='prix_unitaire_dh',
         title='Top 10 Ports : Analyse des Prix Moyens',
         labels={'port': 'Port', 'prix_unitaire_dh': 'Prix Moyen (DH/kg)'},
-        color='prix_unitaire_dh',
-        color_continuous_scale='Solar', # Plus visible sur fond sombre
-        template=ONP_TEMPLATE
+        color_continuous_scale='Solar',
+        template=ONP_TEMPLATE,
+        text='prix_unitaire_dh'
+    )
+    
+    fig.update_traces(
+        texttemplate='%{text:.1f} DH', 
+        textposition='outside',
+        textfont=dict(size=11, color="white")
     )
     
     fig.update_layout(
@@ -238,9 +244,15 @@ def plot_top_species_by_volume(df, top_n=10):
         orientation='h',
         title=f'Top {top_n} espèces par volume',
         labels={'volume_tonnes': 'Volume Total (Tonnes)', 'espece': 'Espèce'},
-        color='volume_kg',
-        color_continuous_scale='Plasma', # Plus vibrant sur fond sombre
-        template=ONP_TEMPLATE
+        color_continuous_scale='Plasma',
+        template=ONP_TEMPLATE,
+        text='volume_tonnes'
+    )
+    
+    fig.update_traces(
+        texttemplate='%{text:.0f} T', 
+        textposition='inside',
+        textfont=dict(size=12, color="white", family="Outfit")
     )
     
     fig.update_layout(
