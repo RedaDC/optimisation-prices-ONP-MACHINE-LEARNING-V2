@@ -239,17 +239,28 @@ class LuxIcons:
 
 # ==================== MODÈLES PLOTLY INSTITUTIONNELS ====================
 def apply_premium_plotly_styling(fig: go.Figure) -> go.Figure:
-    """Style Plotly clair et professionnel"""
+    """Style Plotly Premium (Foncé) pour une lisibilité maximale"""
     fig.update_layout(
-        plot_bgcolor="white",
+        plot_bgcolor="rgba(15, 23, 42, 0.5)", # Slate-900 transparent
         paper_bgcolor="rgba(0,0,0,0)",
-        font={"family": "Outfit, sans-serif", "size": 12, "color": "#1E293B"},
+        font={"family": "Outfit, sans-serif", "size": 12, "color": "#FFFFFF"},
         hovermode="x unified",
         margin={"l": 40, "r": 20, "t": 60, "b": 40},
-        colorway=["#0369A1", "#0EA5E9", "#10B981", "#F59E0B"]
+        colorway=["#38BDF8", "#10B981", "#F59E0B", "#EF4444"], # Couleurs plus vives pour le sombre
+        title_font={"color": "#FFFFFF", "size": 18}
     )
-    fig.update_xaxes(showgrid=True, gridcolor="#F1F5F9", zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="#F1F5F9", zeroline=False)
+    fig.update_xaxes(
+        showgrid=True, 
+        gridcolor="rgba(255, 255, 255, 0.1)", 
+        zeroline=False,
+        tickfont=dict(color="white")
+    )
+    fig.update_yaxes(
+        showgrid=True, 
+        gridcolor="rgba(255, 255, 255, 0.1)", 
+        zeroline=False,
+        tickfont=dict(color="white")
+    )
     return fig
 
 def create_premium_template() -> Dict[str, Any]:

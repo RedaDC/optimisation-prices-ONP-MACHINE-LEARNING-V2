@@ -20,13 +20,13 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
-# Template Plotly financier professionnel (ONP Premium)
+# Template Plotly financier professionnel (ONP Premium - Dark Mode Ready)
 FINANCIAL_TEMPLATE = go.layout.Template()
-FINANCIAL_TEMPLATE.layout.plot_bgcolor = 'rgba(0,0,0,0)'
+FINANCIAL_TEMPLATE.layout.plot_bgcolor = 'rgba(15, 23, 42, 0.5)'
 FINANCIAL_TEMPLATE.layout.paper_bgcolor = 'rgba(0,0,0,0)'
-FINANCIAL_TEMPLATE.layout.font = {'family': "Outfit, sans-serif", 'color': "#0F172A"}
+FINANCIAL_TEMPLATE.layout.font = {'family': "Outfit, sans-serif", 'color': "#FFFFFF"}
 # Palette Halieutis: Deep Navy, Emerald, Gold, Azure
-FINANCIAL_TEMPLATE.layout.colorway = ["#0B1120", "#10B981", "#FFD700", "#0EA5E9", "#6366F1"]
+FINANCIAL_TEMPLATE.layout.colorway = ["#38BDF8", "#10B981", "#FFD700", "#6366F1", "#F472B6"]
 
 
 def calculate_revenue_by_port(df):
