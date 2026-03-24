@@ -1,59 +1,35 @@
 
-import os
 import pandas as pd
-import re
-import unicodedata
+import os
+import sys
 
-IMG_DIR = r"c:\Users\reda\Downloads\optimisation-machine-learning--master (1)\assets\images"
-CSV_PATH = r"c:\Users\reda\Downloads\optimisation-machine-learning--master (1)\species_global_avg_prices.csv"
+# Add current directory to path
+sys.path.append(os.getcwd())
 
-def normalize(name):
-    name = str(name).lower().strip()
-    name = ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn')
-    name = re.sub(r'[\s\-]+', '_', name)
-    name = re.sub(r'[^a-z0-9_]', '', name)
-    return name
-
-def get_base_name(species):
-    s = species.strip()
-    s = re.sub(r'\s+[GMPT]+$', '', s)
-    s = re.sub(r'\s+GG$', '', s)
-    s = re.sub(r'\s+\(PP\)$', '', s, flags=re.IGNORECASE)
-    s = re.sub(r'\s+COMMUN\s*G$', '', s, flags=re.IGNORECASE)
-    s = re.sub(r'^[MPGT]\s+', '', s)
-    return s.strip()
-
-def has_image(base_key, all_imgs):
-    for ext in ['.png', '.jpg']:
-        if f"{base_key}{ext}" in all_imgs:
-            return True
-        if f"wiki_{base_key}{ext}" in all_imgs:
-            return True
-    return False
+from utils import normalize_species_name
+from onp_assets import IMAGES_PECHE_MAROC
 
 def check_missing():
-    if not os.path.exists(CSV_PATH):
-        print(f"CSV not found: {CSV_PATH}")
-        return
-    
-    df = pd.read_csv(CSV_PATH)
-    all_species = df['species'].dropna().unique().tolist()
-    
-    all_imgs = [f.lower() for f in os.listdir(IMG_DIR)]
+    df = pd.read_csv('donnees_simulation_onp.csv')
+    all_species = df['espece'].dropna().unique()
     
     missing = []
-    for sp in sorted(all_species):
-        base = get_base_name(sp)
-        base_key = normalize(base)
-        if not has_image(base_key, all_imgs):
-            missing.append((sp, base))
+    found = []
+    
+    for s in all_species:
+        norm = normalize_species_name(s)
+        if norm in IMAGES_PECHE_MAROC:
+            found.append((s, norm))
+        else:
+            missing.append((s, norm))
             
-    print(f"Total species: {len(all_species)}")
-    print(f"Missing images: {len(missing)}")
-    for sp, base in missing[:20]:
-        print(f"- {sp} (Base: {base})")
-    if len(missing) > 20:
-        print("...")
+    print(f"Total Species in Data: {len(all_species)}")
+    print(f"Species with Images: {len(found)}")
+    print(f"Species MISSING Images: {len(missing)}")
+    
+    print("\nTop Missing Species (first 50):")
+    for s, n in sorted(missing)[:50]:
+        print(f"  - {s} (norm: {n})")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     check_missing()

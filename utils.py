@@ -116,19 +116,24 @@ def get_species_image_path(species_name):
         if os.path.exists(asset_path):
             return asset_path
             
-    # 2. Chercher dans assets/images avec préfixe wiki_ (photos réelles) ou direct
+    # 2. Chercher dans assets/images avec préfixes communs (photos réelles) ou direct
     base_dir = os.path.dirname(os.path.abspath(__file__))
     img_dir = os.path.join(base_dir, "assets", "images")
     if os.path.exists(img_dir):
         for ext in ['.jpg', '.png', '.jpeg']:
-            # Essayer préfixe wiki_
-            wiki_path = os.path.join(img_dir, f"wiki_{key}{ext}")
-            if os.path.exists(wiki_path):
-                return wiki_path
-            # Essayer direct
-            direct_path = os.path.join(img_dir, f"{key}{ext}")
-            if os.path.exists(direct_path):
-                return direct_path
+            # Liste des préfixes à essayer pour les photos réelles
+            for prefix in ["wiki_", "real_", ""]:
+                p = os.path.join(img_dir, f"{prefix}{key}{ext}")
+                if os.path.exists(p):
+                    return p
+            
+            # Cas spécial pour les noms avec tirets/underscores inversés
+            key_alt = key.replace('_', '-')
+            if key_alt != key:
+                for prefix in ["wiki_", "real_", ""]:
+                    p = os.path.join(img_dir, f"{prefix}{key_alt}{ext}")
+                    if os.path.exists(p):
+                        return p
     
     # 3. Fallback sur les catégories génériques (mots clés)
     if any(k in key for k in ["crevette", "shrimp"]):
@@ -156,14 +161,19 @@ def has_real_species_image(species_name):
         
     img_path = get_species_image_path(species_name)
     default_img = IMAGES_PECHE_MAROC.get("marche_poisson", "")
+    hero_img = IMAGES_PECHE_MAROC.get("hero", "")
     
-    # Échec si pas de chemin, ou si c'est l'image par défaut, ou si c'est vide
-    if not img_path or img_path == default_img or img_path == "":
+    # Échec si pas de chemin, ou si c'est l'image par défaut/hero, ou si c'est vide
+    if not img_path or img_path == default_img or img_path == hero_img or img_path == "":
+        return False
+        
+    # Vérification supplémentaire : si c'est un chemin local, il doit exister physiquement
+    if not str(img_path).startswith("http") and not os.path.exists(img_path):
         return False
         
     return True
 
-def get_unique_valid_species(df):
+def get_unique_valid_species(df, require_image=False):
     """Retourne une liste d'espèces dédoublonnées et 'propres' (sans tailles) pour l'UI."""
     import pandas as pd
     
@@ -180,12 +190,16 @@ def get_unique_valid_species(df):
         norm = normalize_species_name(s)
         
         # On ne garde qu'une seule version par espèce "racine"
-        if norm not in seen_norm and has_real_species_image(s):
+        if norm not in seen_norm:
             # Créer un nom propre : ex "Merlu" au lieu de "merlu"
             clean_name = norm.replace('_', ' ').upper()
             
             # Cas particuliers pour garder le style ONP
             if clean_name == "BAR": clean_name = "BAR (LOUP)"
+            
+            # Filtrage optionnel par image
+            if require_image and not has_real_species_image(clean_name):
+                continue
             
             if clean_name not in final_list:
                 final_list.append(clean_name)
@@ -232,6 +246,18 @@ def clean_data(df):
     if 'espece' in df_clean.columns:
         unwanted = ['INCONNU', 'AUTRE', 'GROUPE INCONNU', 'AUTRES', 'INCONNUS']
         df_clean = df_clean[~df_clean['espece'].str.upper().str.strip().isin(unwanted)]
+        
+        # Filtrage strict global: On supprime toutes les espèces qui n'ont pas d'image
+        def check_valid_image(esp):
+            if pd.isna(esp) or not str(esp).strip(): 
+                return False
+            norm = normalize_species_name(str(esp))
+            clean_name = norm.replace('_', ' ').upper()
+            if clean_name == "BAR": clean_name = "BAR (LOUP)"
+            return has_real_species_image(clean_name)
+            
+        mask_image = df_clean['espece'].apply(check_valid_image)
+        df_clean = df_clean[mask_image]
     
     # Suppression des valeurs aberrantes
     # Prix négatifs ou nuls
@@ -243,18 +269,18 @@ def clean_data(df):
         df_clean = df_clean[df_clean['volume_kg'] > 0]
     
     # Suppression des outliers par espèce (plus précis)
-    # On utilise un seuil de 5 écarts-types pour être tolérant avec les espèces à haute valeur
-    # mais éliminer les erreurs de saisie extrêmes.
+    # On utilise un seuil de 3 écarts-types (3-sigma) pour éliminer les erreurs de saisie
+    # tout en restant représentatif des tendances de marché.
     for col in ['prix_unitaire_dh', 'volume_kg']:
         if col in df_clean.columns and 'espece' in df_clean.columns:
-            # Calculer mean/std par espèce séparément (évite TypeError unhashable type: 'list')
+            # Calculer mean/std par espèce séparément
             group = df_clean.groupby('espece')[col]
             m_vals = group.transform('mean')
             s_vals = group.transform('std')
             
-            # Garder les lignes dans 5 sigma ou les espèces avec trop peu de données
-            mask = (df_clean[col] <= m_vals + 5 * s_vals) & \
-                   (df_clean[col] >= m_vals - 5 * s_vals)
+            # Garder les lignes dans 3 sigma ou les espèces avec trop peu de données
+            mask = (df_clean[col] <= m_vals + 3 * s_vals) & \
+                   (df_clean[col] >= m_vals - 3 * s_vals)
             # Si std est nul ou NaN (une seule ligne), on garde
             mask = mask | s_vals.isna() | (s_vals == 0)
             df_clean = df_clean[mask]
@@ -328,11 +354,11 @@ def get_real_fuel_price(region="CENTRE"):
     - SUD : Base + transport (~ +0.10 DH pour Agadir)
     - GRAND_SUD : Prix détaxé/exonéré (~ 8.00 DH)
     """
-    @st.cache_data(ttl=86400) # Mise à jour toutes les 24h
+    @st.cache_data(ttl=3600) # Mise à jour toutes les 1h
     def fetch_fuel():
         """Tente de récupérer le prix réel via plusieurs sources de confiance."""
-        # Valeur de référence (Dernière connue : Février 2026)
-        base_price = 10.40 
+        # Valeur de référence (Dernière connue : 16 Mars 2026 - Hausse de +2 DH)
+        base_price = 12.80 
         
         sources = [
             "https://www.globalpetrolprices.com/Morocco/diesel_prices/",

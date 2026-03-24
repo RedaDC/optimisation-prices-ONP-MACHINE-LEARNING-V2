@@ -1,4 +1,4 @@
-﻿### EspÞces avec Image
+### EspÞces avec Image
 - ABADECHE
 - ABADECHE T
 - AIGLE VACHETTE
@@ -148,7 +148,6 @@
 - MOSTELLE
 - MOSTELLE T
 - MOULE AFRIQUE
-- MOULE D'AFRIQUE
 - MOULE M╔DITERRAN╔ENN
 - MULET
 - MULET DORE

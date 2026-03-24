@@ -100,11 +100,8 @@ def plot_volume_price_relationship(df):
     Returns:
         plotly.graph_objects.Figure: Graphique interactif
     """
-    # Échantillonner si trop de points
-    if len(df) > 2000:
-        df_sample = df.sample(n=2000, random_state=42)
-    else:
-        df_sample = df
+    # Utiliser toutes les données pour afficher toutes les espèces
+    df_sample = df
     
     fig = px.scatter(
         df_sample,
@@ -227,6 +224,9 @@ def plot_top_species_by_volume(df, top_n=10):
     """
     Affiche les espèces les plus pêchées.
     """
+    if df is None or df.empty:
+        return go.Figure().update_layout(title="Aucune donnée disponible pour le Top Espèces")
+    
     top_species = df.groupby('espece')['volume_kg'].sum().reset_index().sort_values('volume_kg', ascending=False).head(top_n)
     top_species['volume_tonnes'] = top_species['volume_kg'] / 1000
     
@@ -253,8 +253,10 @@ def plot_top_species_by_volume(df, top_n=10):
 def plot_regional_activity_heatmap(df):
     """
     Crée une heatmap de l'activité agrégée par région et par mois.
-    Idéal pour une vision stratégique quand il y a trop de ports.
     """
+    if df is None or df.empty:
+        return go.Figure().update_layout(title="Aucune donnée disponible pour l'Analyse Régionale")
+    
     df_reg = df.copy()
     
     # Créer la colonne mois si elle n'existe pas
@@ -313,12 +315,12 @@ def plot_port_activity_heatmap(df):
     """
     Crée une heatmap de l'activité par port et mois.
     
-    Args:
-        df (pd.DataFrame): DataFrame avec 'port', 'date_vente', 'volume_kg'
-        
     Returns:
         plotly.graph_objects.Figure: Graphique interactif
     """
+    if df is None or df.empty:
+        return go.Figure().update_layout(title="Aucune donnée disponible pour l'Activité Portuaire")
+    
     # Créer la colonne mois si elle n'existe pas
     if 'mois' not in df.columns:
         df['mois'] = pd.to_datetime(df['date_vente']).dt.month

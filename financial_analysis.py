@@ -193,6 +193,9 @@ def plot_top_mgs_revenue(df, year=2025):
         return go.Figure().update_layout(title=f"Aucune donnée MG disponible pour {year}")
         
     # Calculer la recette par port
+    if 'recette' not in df_mgs.columns:
+        df_mgs['recette'] = df_mgs['prix_unitaire_dh'] * df_mgs['volume_kg']
+        
     recette_port = df_mgs.groupby('port')['recette'].sum().sort_values(ascending=False).reset_index()
     recette_port['recette_m'] = recette_port['recette'] / 1_000_000
     

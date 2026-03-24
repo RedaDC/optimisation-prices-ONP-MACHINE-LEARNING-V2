@@ -356,7 +356,6 @@ def _series(df, *names):
     return pd.Series(dtype=object)
 
 # ==================== CACHE & STATE ====================
-@st.cache_data(ttl=3600)
 def load_default_data():
     """Charge les données de base (Réelles si disponibles, sinon simulation)"""
     try:
@@ -1277,33 +1276,14 @@ def render_page_accueil(df):
         
         with tab_reg:
             fig_reg = plot_regional_activity_heatmap(df)
-            # Amélioration technique : Ajout d'une ligne de moyenne nationale (assuming a relevant metric like average price can be extracted)
-            # Note: Adding a horizontal line to a heatmap is not standard. This assumes fig_reg might also contain a line plot or a compatible structure.
-            # If 'prix_unitaire_dh' is a relevant metric in the heatmap's data, we can calculate its average.
-            if 'prix_unitaire_dh' in df.columns:
-                moyenne_nationale = df['prix_unitaire_dh'].mean()
-                # This line might need adjustment based on the actual structure of fig_reg (e.g., if it's a scatter or line plot within the heatmap)
-                # For a heatmap, a horizontal line on the color scale or a separate indicator might be more appropriate.
-                # As a placeholder, we'll add it to the layout if it's a standard plotly figure.
-                fig_reg.add_hline(y=moyenne_nationale, line_dash="dash", line_color="#EF4444", 
-                                  annotation_text=f"Moyenne: {moyenne_nationale:.2f} DH/kg", 
-                                  annotation_position="bottom right")
-            
-            # Activation du RangeSlider pour l'analyse temporelle précise (assuming x-axis is time-based)
-            fig_reg.update_xaxes(rangeslider_visible=True)
-            
             # Application du style institutionnel
             fig_reg = apply_premium_plotly_styling(fig_reg)
-            st.plotly_chart(fig_reg, use_container_width=True)
+            st.plotly_chart(fig_reg, width="stretch")
             
         with tab_port:
             fig_port = plot_port_activity_heatmap(df)
-            # Amélioration technique : Animation temporelle si possible
-            # This would typically require modifying the plot_port_activity_heatmap function to generate frames.
-            # For now, we'll just apply styling and rangeslider if applicable.
-            fig_port.update_xaxes(rangeslider_visible=True) # Assuming x-axis is time-based
             fig_port = apply_premium_plotly_styling(fig_port)
-            st.plotly_chart(fig_port, use_container_width=True)
+            st.plotly_chart(fig_port, width="stretch")
     
     # Insights Section
     st.markdown("---")
@@ -1499,6 +1479,18 @@ def render_page_financial(df):
 
 def render_page_ml(df, predictor):
     """Page du modèle Machine Learning"""
+    import os
+    import pandas as pd
+    data_granulaire = 'donnees_simulation_onp.csv'
+    if os.path.exists(data_granulaire):
+        try:
+            df_sim = pd.read_csv(data_granulaire)
+            if 'espece' in df_sim.columns and 'port' in df_sim.columns:
+                from utils import clean_data
+                df = clean_data(df_sim)
+        except:
+            pass
+
     render_module_hero(
         "Modélisation Prédictive",
         "Anticipation des cours et aide à la décision stratégique par IA",
@@ -1537,7 +1529,7 @@ def render_page_ml(df, predictor):
             with col_op1:
                 st.markdown(f"#### {LuxIcons.render('anchor', size=20)} Conseiller de Débarquement", unsafe_allow_html=True)
                 from utils import get_unique_valid_species
-                valid_species = get_unique_valid_species(df)
+                valid_species = get_unique_valid_species(df, require_image=True)
                 v_species = st.selectbox("Espèce à débarquer", valid_species, key="op_species")
                 v_vol = st.number_input("Volume estimé (tonnes)", value=2.0)
                 
@@ -1602,7 +1594,7 @@ def render_page_ml(df, predictor):
             col1, col2, col3 = st.columns(3)
             with col1:
                 from utils import get_unique_valid_species
-                species_options = get_unique_valid_species(df)
+                species_options = get_unique_valid_species(df, require_image=True)
                 species = st.selectbox("Espèce", species_options, key="ml_species", help="Choisissez l'espèce pour la prédiction")
             with col2:
                 port_options = sorted(_series(df, "Port", "port").dropna().unique().tolist())
@@ -1901,6 +1893,18 @@ def render_page_ml(df, predictor):
 
 def render_page_simulation(df):
     """Page de simulation"""
+    # Pour le simulateur, on préfère des données granulaires si disponibles
+    data_granulaire = 'donnees_simulation_onp.csv'
+    if os.path.exists(data_granulaire):
+        try:
+            df_sim = pd.read_csv(data_granulaire)
+            # Nettoyage minimal pour assurer la compatibilité + filtre global des images
+            if 'espece' in df_sim.columns and 'port' in df_sim.columns:
+                from utils import clean_data
+                df = clean_data(df_sim)
+        except:
+            pass
+
     render_module_hero(
         "Simulateur Stratégique",
         "Modélisation de scénarios d'impact sur les cours halieutiques",
@@ -1912,8 +1916,8 @@ def render_page_simulation(df):
     with col1:
         st.markdown("### Paramètres de Simulation")
         from utils import get_unique_valid_species
-        species_options = get_unique_valid_species(df)
-        port_options = sorted(_series(df, "Port", "port").dropna().unique().tolist())
+        species_options = get_unique_valid_species(df, require_image=True)
+        port_options = sorted(df["port"].dropna().unique().tolist()) if "port" in df.columns else []
         species_filter = st.selectbox(
             "Espèce",
             species_options,
@@ -2720,7 +2724,7 @@ def render_page_simulateur_b2b():
     st.markdown("""
         <div style="background-color: #F8FAFC; padding: 16px; border-radius: 8px; border-left: 4px solid #0EA5E9; margin-bottom: 24px;">
             <strong>Comment utiliser ce simulateur ?</strong> Saisissez le volume et le prix d'achat en halle ci-dessous. 
-            Les taxes réglementaires (ONP 3% + Commune 1%) sont appliquées automatiquement. 
+            Les taxes réglementaires (ONP 4% + Commune 1%) sont appliquées automatiquement. 
             Ajustez ensuite vos frais logistiques pour visualiser votre rentabilité finale.
         </div>
     """, unsafe_allow_html=True)
@@ -2755,14 +2759,17 @@ def render_page_simulateur_b2b():
         # Affichage des KPIs
         k1, k2 = st.columns(2)
         with k1:
-            st.metric("Coût de Revient Total", f"{res['cout_revient_total']:,.0f} DH", f"{res['prix_revient_unitaire']:.2f} DH/kg", delta_color="off")
+            ca_halle_str = f"{res['valeur_achat_halle']:,.0f}".replace(',', ' ')
+            st.metric("Chiffre d'Affaires (Halle)", f"{ca_halle_str} DH", delta=None, help="Base de calcul des taxes (Achat à la criée)")
             
             roi_color = "normal" if res['marge_nette_globale'] >= 0 else "inverse"
-            st.metric("Marge Nette Globale", f"{res['marge_nette_globale']:,.0f} DH", f"{res['marge_nette_unitaire']:+.2f} DH/kg", delta_color=roi_color)
+            marge_globale_str = f"{res['marge_nette_globale']:,.0f}".replace(',', ' ')
+            st.metric("Marge Nette Globale", f"{marge_globale_str} DH", f"{res['marge_nette_unitaire']:+.2f} DH/kg", delta_color=roi_color)
 
         with k2:
-            st.metric("Chiffre d'Affaires", f"{res['chiffre_affaires_revente']:,.0f} DH")
-            st.metric("ROI (Rentabilité)", f"{res['roi_pct']:.1f}%", f"{res['roi_pct']:.1f}%", delta_color=roi_color)
+            revente_str = f"{res['revenu_revente']:,.0f}".replace(',', ' ')
+            st.metric("Vente (Marché/Export)", f"{revente_str} DH", help="Revenu total généré par la revente")
+            st.metric("Taux de Marge", f"{res['margin_pct']:.1f}%", f"{res['margin_pct']:.1f}% sur vente", delta_color=roi_color)
 
         st.markdown("<hr style='margin: 1rem 0;'>", unsafe_allow_html=True)
 
@@ -2772,150 +2779,14 @@ def render_page_simulateur_b2b():
 
         # Synthèse des coûts supplémentaires
         st.markdown("**Détail des Frais & Taxes (Enveloppe totale)**")
-        st.caption(f"- Taxes ONP & Commune : **{res['montant_taxes']:,.0f} DH**")
-        st.caption(f"- Logistique Totale : **{res['total_logistique']:,.0f} DH**")
+        tax_total_str = f"{res['montant_taxes']:,.0f}".replace(',', ' ')
+        log_total_str = f"{res['total_logistique']:,.0f}".replace(',', ' ')
+        st.caption(f"- Taxes ONP & Commune (5%) : **{tax_total_str} DH** ({res['montant_taxes']/volume:.2f} DH/kg)")
+        st.caption(f"- Logistique Totale : **{log_total_str} DH** ({res['total_logistique']/volume:.2f} DH/kg)")
 
 
 # ==================== PAGE VUE EXÉCUTIVE (DIRECTEUR) ====================
 
-def render_page_executive_view(df: pd.DataFrame):
-    """Tableau de bord ultra-condensé pour la Direction (Top Metrics & Alertes)"""
-    PremiumComponents.section_header(
-        "Vue Exécutive (Direction)",
-        "Synthèse Flash des Ventes et Alertes Marché (2024-2025)",
-        "star"
-    )
-
-    if df is None or df.empty:
-        st.warning("Données insuffisantes.")
-        return
-
-    # S'assurer qu'on a les bonnes années
-    df_exec = df[df['annee'].isin([2024, 2025])].copy()
-    if df_exec.empty:
-        st.info("Aucune donnée pour 2024-2025.")
-        return
-
-    # Grouper pour extraire les grands totaux
-    total_ca = df_exec['recette_totale'].sum()
-    total_vol = df_exec['volume_kg'].sum() / 1000  # Conversion en Tonnes
-
-    # --- TOP KPIs ---
-    st.markdown("### Chiffres Clés (Cumul 2024-2025)")
-    k1, k2, k3 = st.columns(3)
-    
-    with k1:
-        st.markdown(f"""
-        <div style="background:linear-gradient(135deg, #0369A1, #0284C7); padding:20px; border-radius:12px; color:white; box-shadow:0 4px 15px rgba(2,132,199,0.2);">
-            <div style="font-size:0.9rem; opacity:0.8; text-transform:uppercase; font-weight:700;">Chiffre d'Affaires Global</div>
-            <div style="font-size:2rem; font-weight:800; margin-top:5px;">{total_ca/1e6:,.1f} M DH</div>
-        </div>""", unsafe_allow_html=True)
-    with k2:
-        st.markdown(f"""
-        <div style="background:white; padding:20px; border-radius:12px; border:1px solid #E2E8F0; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
-            <div style="font-size:0.9rem; color:#64748B; text-transform:uppercase; font-weight:700;">Volume Total Débarqué</div>
-            <div style="font-size:2rem; font-weight:800; color:#1E293B; margin-top:5px;">{total_vol:,.0f} T</div>
-        </div>""", unsafe_allow_html=True)
-    with k3:
-        prix_moyen_global = total_ca / total_vol if total_vol > 0 else 0
-        st.markdown(f"""
-        <div style="background:white; padding:20px; border-radius:12px; border:1px solid #E2E8F0; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
-            <div style="font-size:0.9rem; color:#64748B; text-transform:uppercase; font-weight:700;">Prix Moyen Pondéré</div>
-            <div style="font-size:2rem; font-weight:800; color:#10B981; margin-top:5px;">{prix_moyen_global:.2f} DH/kg</div>
-        </div>""", unsafe_allow_html=True)
-
-    st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
-
-    c_left, c_right = st.columns(2)
-
-    # --- TOP 5 ---
-    with c_left:
-        st.markdown("### Top 5 Espèces par Valeur")
-        df_exec['ca_espece'] = df_exec['recette_totale']
-        top_especes = df_exec.groupby('espece')['ca_espece'].sum().sort_values(ascending=False).head(5)
-        
-        for i, (esp, ca_esp) in enumerate(top_especes.items()):
-            pct = (ca_esp / total_ca) * 100
-            st.markdown(f"""
-            <div style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-weight:600; color:#334155;">{i+1}. {esp}</span>
-                <span style="color:#0369A1; font-weight:700;">{ca_esp/1e6:.1f} M DH <span style="font-size:0.8rem; color:#94A3B8; font-weight:normal;">({pct:.1f}%)</span></span>
-            </div>""", unsafe_allow_html=True)
-
-    # --- ALERTES DE MARCHÉ ---
-    with c_right:
-        st.markdown("### Alertes de Marché (Chutes de Prix)")
-        st.caption("Détection d'une baisse > 15% du prix moyen entre 2024 et 2025 pour les volumes significatifs.")
-        
-        # Analyser les variations de prix 2024 vs 2025 pour les grandes espèces (> 10 Tonnes)
-        alertes = []
-        for esp in df_exec['espece'].unique():
-            df_esp_24 = df_exec[(df_exec['espece'] == esp) & (df_exec['annee'] == 2024)]
-            df_esp_25 = df_exec[(df_exec['espece'] == esp) & (df_exec['annee'] == 2025)]
-            
-            vol_24 = df_esp_24['volume_kg'].sum() / 1000
-            vol_25 = df_esp_25['volume_kg'].sum() / 1000
-            
-            if vol_24 > 10 and vol_25 > 10:
-                p_24 = df_esp_24['recette_totale'].sum() / (vol_24 * 1000)
-                p_25 = df_esp_25['recette_totale'].sum() / (vol_25 * 1000)
-                variation = (p_25 - p_24) / p_24 * 100
-                
-                if variation < -15.0:
-                    alertes.append({
-                        'espece': esp,
-                        'baisse': variation,
-                        'p24': p_24,
-                        'p25': p_25
-                    })
-        
-        if not alertes:
-            st.success("Aucune alerte critique détectée. Marché stable.")
-        else:
-            alertes = sorted(alertes, key=lambda x: x['baisse'])[:5] # Top 5 plus grosses chutes
-            for a in alertes:
-                st.markdown(f"""
-                <div style="background:rgba(239, 68, 68, 0.1); border-left:3px solid #EF4444; padding:10px 15px; border-radius:4px; margin-bottom:10px;">
-                    <div style="font-weight:700; color:#B91C1C;">{a['espece']}</div>
-                    <div style="font-size:0.85rem; color:#7F1D1D;">
-                        Chute de <strong>{a['baisse']:.1f}%</strong> (Passage de {a['p24']:.2f} à {a['p25']:.2f} DH/kg)
-                    </div>
-                </div>""", unsafe_allow_html=True)
-
-    st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
-    
-    # --- EXPORT REPORT (PDF/Markdown) ---
-    st.markdown("### Export du Rapport Direction")
-    st.caption("Téléchargez la synthèse exécutive au format Markdown (lisible et convertible en PDF).")
-    
-    report_md = f"""# Rapport Exécutif ONP - Synthèse Flash 2024-2025
-Généré automatiquement par ONP Premium.
-
-## 1. Chiffres Clés Globaux
-- **Chiffre d'Affaires Global :** {total_ca/1e6:,.1f} Millions DH
-- **Volume Total Débarqué :** {total_vol:,.0f} Tonnes
-- **Prix Moyen Pondéré :** {prix_moyen_global:.2f} DH/kg
-
-## 2. Top 5 Espèces (Chiffre d'Affaires)
-"""
-    for i, (esp, ca_esp) in enumerate(top_especes.items()):
-        pct = (ca_esp / total_ca) * 100
-        report_md += f"{i+1}. **{esp}** : {ca_esp/1e6:.1f} M DH ({pct:.1f}%)\\n"
-
-    report_md += "\\n## 3. Alertes Marché (Chutes de Prix > 15%)\\n"
-    if not alertes:
-        report_md += "✅ Marché stable, aucune chute de prix significative détectée.\\n"
-    else:
-        for a in alertes:
-            report_md += f"- **{a['espece']}** : Chute de {a['baisse']:.1f}% (Passage de {a['p24']:.2f} à {a['p25']:.2f} DH/kg)\\n"
-            
-    st.download_button(
-        label="Télécharger le Rapport Exécutif (MD)",
-        data=report_md.encode('utf-8'),
-        file_name="rapport_executif_onp.md",
-        mime='text/markdown',
-        width="stretch"
-    )
 
 
 # ==================== PAGE SAISONNALITE ====================
@@ -3121,7 +2992,7 @@ def main():
 
     # Définition complète des onglets existants
     all_nav_items = {
-        "Vue Exécutive": "star",
+
         "Accueil": "home",
         "Rapport 2024-2025": "report",
         "Analytics": "chart",
@@ -3191,6 +3062,14 @@ def main():
     render_external_conditions(port_name=selected_port)
 
     st.sidebar.markdown("---")
+    st.sidebar.markdown(f"#### {LuxIcons.render('refresh', size=20, color='#0EA5E9')} Synchronisation Data", unsafe_allow_html=True)
+    if st.sidebar.button("Appliquer les Changements", key="global_sync_btn", use_container_width=True):
+        st.cache_data.clear()
+        st.session_state.main_df = load_default_data()
+        st.success("Données synchronisées !")
+        st.rerun()
+
+    st.sidebar.markdown("---")
     st.sidebar.markdown(f"#### {LuxIcons.render('shield', size=20, color='#0EA5E9')} Pulse Marché", unsafe_allow_html=True)
     recent_data = df_filtered.tail(100) if not df_filtered.empty else df.tail(100)
     market_alerts = get_market_saturation_alerts(recent_data)
@@ -3248,11 +3127,11 @@ def main():
             if 'render_page_ml' in globals():
                  predictor = initialize_predictor(df, mtime)
                  if predictor:
-                    render_page_ml(df_filtered, predictor)
+                    render_page_ml(df, predictor)
             elif 'render_page_prediction' in globals():
                  predictor = initialize_predictor(df, mtime)
                  if predictor:
-                    render_page_prediction(predictor, df_filtered)
+                    render_page_prediction(predictor, df)
             else:
                  st.info("Module ML en maintenance.")
         else:
@@ -3261,7 +3140,7 @@ def main():
     elif page == "Simulateur":
         if df is not None and not df.empty:
             if 'render_page_simulation' in globals():
-                render_page_simulation(df_filtered)
+                render_page_simulation(df)
             else:
                  st.info("Module Simulateur en maintenance.")
         else:
@@ -3280,8 +3159,6 @@ def main():
         else:
             render_page_diminution_ca(df)
 
-    elif page == "Vue Exécutive":
-        render_page_executive_view(df_filtered)
 
     elif page == "Simulateur B2B (Marge)":
         render_page_simulateur_b2b()

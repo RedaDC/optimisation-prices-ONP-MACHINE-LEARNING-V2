@@ -14,7 +14,7 @@ import streamlit as st
 # 1. PARAMÈTRES ET TAXES OFFICIELLES
 
 # Taxes appliquées à l'achat en Halle (à la charge de l'acheteur)
-TAXE_HALLE_ACHETEUR = 0.03       # 3% (Taxe pour l'ONP)
+TAXE_HALLE_ACHETEUR = 0.04       # 4% (Taxe pour l'ONP)
 TAXE_COMMUNALE_ACHETEUR = 0.01   # 1% (Taxe pour la commune)
 TOTAL_TAXES_ACHA = TAXE_HALLE_ACHETEUR + TAXE_COMMUNALE_ACHETEUR
 
@@ -62,16 +62,16 @@ def calculate_mareyeur_margin(
     marge_nette_globale = chiffre_affaires_revente - cout_revient_total
     marge_nette_unitaire = prix_revente_dh_kg - prix_revient_unitaire
     
-    # ROI: Return on Investment (%)
-    roi_pct = (marge_nette_globale / cout_revient_total * 100) if cout_revient_total > 0 else 0
+    # ROI: Profit Margin (%) on Resale
+    margin_pct = (marge_nette_globale / chiffre_affaires_revente * 100) if chiffre_affaires_revente > 0 else 0
 
     return {
         'volume_kg': volume_kg,
         'prix_achat_unitaire': prix_achat_dh_kg,
-        'valeur_achat_brute': valeur_achat_brute,
+        'valeur_achat_halle': valeur_achat_brute,
         'montant_taxes': montant_taxe_halle + montant_taxe_commune,
         'details_taxes': {
-            'ONP (3%)': montant_taxe_halle,
+            'ONP (4%)': montant_taxe_halle,
             'Commune (1%)': montant_taxe_commune
         },
         'total_logistique': total_logistique,
@@ -83,10 +83,10 @@ def calculate_mareyeur_margin(
         },
         'cout_revient_total': cout_revient_total,
         'prix_revient_unitaire': prix_revient_unitaire,
-        'chiffre_affaires_revente': chiffre_affaires_revente,
+        'revenu_revente': chiffre_affaires_revente,
         'marge_nette_globale': marge_nette_globale,
         'marge_nette_unitaire': marge_nette_unitaire,
-        'roi_pct': roi_pct
+        'margin_pct': margin_pct
     }
 
 # 3. VISUALISATION (WATERFALL)
@@ -98,7 +98,7 @@ def build_waterfall_chart(calc_res: dict) -> go.Figure:
     """
     
     # Formatage des valeurs (montants totaux)
-    v_achat = calc_res['valeur_achat_brute']
+    v_achat = calc_res['valeur_achat_halle']
     v_taxes = calc_res['montant_taxes']
     v_glace = calc_res['details_logistique']['Glace']
     v_manu = calc_res['details_logistique']['Manutention']
@@ -108,12 +108,16 @@ def build_waterfall_chart(calc_res: dict) -> go.Figure:
     
     # Configuration du Waterfall
     fig = go.Figure(go.Waterfall(
-        name="Cost Breakdown",
+        name="Décomposition",
         orientation="v",
         measure=["relative", "relative", "relative", "relative", "relative", "relative", "total", "relative", "total"],
-        x=["Achat Brut", "Taxes", "Glace", "Manutention", "Transport", "Emballage", "Total Revient", "Marge Nette", "Revente"],
+        x=["Achat Brut", "Taxes (5%)", "Glace", "Manutention", "Transport", "Emballage", "Pr. Revient", "Marge Nette", "Vente (Marché)"],
         textposition="outside",
-        text=[f"{v:,.0f} DH" for v in [v_achat, v_taxes, v_glace, v_manu, v_trans, v_emb, calc_res['cout_revient_total'], v_marge, calc_res['chiffre_affaires_revente']]],
+        # Utilisation de l'espace comme séparateur de milliers pour éviter la confusion avec la virgule décimale
+        text=[f"{v:,.0f}".replace(',', ' ') + " DH" for v in [
+            v_achat, v_taxes, v_glace, v_manu, v_trans, v_emb, 
+            calc_res['cout_revient_total'], v_marge, calc_res['revenu_revente']
+        ]],
         y=[v_achat, v_taxes, v_glace, v_manu, v_trans, v_emb, 0, v_marge, 0],
         connector={"line":{"color":"#94A3B8", "width":1.5, "dash":"dot"}},
         decreasing={"marker":{"color":"#EF4444"}}, # Rouge pour baisse (marge négative)
@@ -121,16 +125,9 @@ def build_waterfall_chart(calc_res: dict) -> go.Figure:
         totals={"marker":{"color":"#0EA5E9"}}      # Bleu pour totaux
     ))
 
-    # Mise à jour des styles
-    fig.update_traces(
-        # On définit les couleurs spécifiques par trace si nécessaire, 
-        # mais le Waterfall gère généralement via increasing/decreasing/totals
-        # Pour une personnalisation plus fine, on utilise les paramètres ci-dessus.
-    )
-
     fig.update_layout(
         title=dict(
-            text="Décomposition du Prix et Marge Nette (Waterfall)",
+            text="Analyse du Coût de Revient (Valeur Totale)",
             font=dict(size=18, family="Outfit", color="#1E293B")
         ),
         showlegend=False,

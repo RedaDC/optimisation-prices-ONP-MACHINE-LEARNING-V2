@@ -1,165 +1,64 @@
-# ONP - Optimisation des Prix de Vente des Produits de la Pêche
+# ONP Premium - Optimisation des Prix de Vente (v2.0)
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-red.svg)](https://streamlit.io/)
-[![License](https://img.shields.io/badge/License-Academic-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.31+-red.svg)](https://streamlit.io/)
+[![Status](https://img.shields.io/badge/Status-Enterprise%20Ready-success)](#)
 
-> **Application d'aide à la décision basée sur le Machine Learning pour l'Office National des Pêches (ONP) - Maroc**
+> **Intelligence de Marché & Aide à la Décision Stratégique pour l'Office National des Pêches (ONP) - Maroc**
 
-![ONP Dashboard](https://img.shields.io/badge/Status-Production%20Ready-success)
+## 📋 Présentation
 
-## 📋 Description
+**ONP Premium** est une plateforme analytique de pointe développée pour moderniser la filière halieutique marocaine. Elle transforme les données massives de vente à la criée en insights actionnables via des modèles de Machine Learning (XGBoost) et des visualisations haute fidélité.
 
-Application web interactive développée dans le cadre d'un **Projet de Fin d'Études (PFE)** en Master Finance & Data Science. Cette plateforme utilise des techniques avancées de Machine Learning pour analyser les données historiques de vente à la criée et optimiser les prix de vente des produits de la pêche.
+### 🌟 Points Forts
+- **Intelligence Artificielle** : Prédiction précise des cours via Gradient Boosting.
+- **Visualisation Elite** : Design Glassmorphism et graphiques Plotly interactifs.
+- **Souveraineté des Données** : Rapport institutionnel automatisé (Word/PDF).
+- **Richesse Visuelle** : Base de données de +290 espèces avec photos réelles.
 
-### Objectifs
+## ✨ Fonctionnalités Clés
 
-- ✅ Analyser les facteurs influençant les prix (espèce, port, volume, saison)
-- ✅ Prédire le prix de vente optimal grâce à des modèles ML
-- ✅ Simuler l'impact des décisions sur les recettes financières
-- ✅ Fournir un dashboard professionnel pour les décideurs de l'ONP
+### 📊 Suite Analytique Stratégique
+1. **Pilotage National** : Dashboard exécutif avec KPIs temps réel et Market Pulse.
+2. **Intelligence de Marché** : Exploration multidimensionnelle (Volume/Prix/Port).
+3. **Analyse de Saisonnalité** : Modélisation 4-facteurs (Biologie, Climat, Carburant, Captures).
+4. **Interactive Strategy Map** : Monitoring des 22 ports majeurs du Royaume.
 
-## ✨ Fonctionnalités
+### 🧮 Simulateurs Avancés
+- **Simulateur de Prix (Halieutis)** : Impact des variations de volume sur les recettes nationales.
+- **Simulateur B2B (Marge)** : Calcul du coût de revient total (Taxes ONP 4%, Logistique) pour les mareyeurs.
+- **Vue Exécutive** : Synthèse flash et alertes de marché pour la Direction.
 
-### 📱 Interface Streamlit (5 Pages)
-
-1. **Accueil** - Vue d'ensemble avec KPIs principaux
-2. **Analyse des Prix** - Visualisations exploratoires interactives
-3. **Analyse Financière** - Recettes, rentabilité, évolution
-4. **Modèle ML** - Entraînement et comparaison de 3 modèles
-5. **Simulation** - Impact et recommandations
-
-### 🤖 Machine Learning
-
-- **3 Modèles implémentés** :
-  - Régression Linéaire (baseline)
-  - Random Forest (ensemble)
-  - XGBoost (gradient boosting)
-- **Sélection automatique** du meilleur modèle
-- **Feature importance** pour interprétabilité
-- **Métriques** : RMSE, MAE, R²
-
-### 📊 Analyses
-
-- Distribution des prix par espèce
-- Prix par port et saisonnalité
-- Relation volume-prix
-- Recettes par port et espèce
-- Top espèces rentables
-- Évolution temporelle
-
-## 🚀 Installation
-
-### Prérequis
-
-- Python 3.8 ou supérieur
-- pip (gestionnaire de paquets Python)
-
-### Étapes
-
-1. **Cloner le repository**
+## 🚀 Installation & Lancement
 
 ```bash
-git clone https://github.com/VOTRE_USERNAME/onp-ml-pricing.git
-cd onp-ml-pricing
-```
-
-2. **Installer les dépendances**
-
-```bash
+# 1. Installation des dépendances
 pip install -r requirements.txt
+
+# 2. Lancement de l'application Premium
+streamlit run app_premium.py
 ```
 
-3. **Lancer l'application**
-
-```bash
-streamlit run app.py
-```
-
-L'application s'ouvrira automatiquement dans votre navigateur à `http://localhost:8501`
-
-## 📁 Structure du Projet
+## 📁 Architecture du Projet
 
 ```
-📦 ONP ML Pricing/
-├── 📄 app.py                      # Application Streamlit principale
-├── 📄 utils.py                    # Fonctions utilitaires
-├── 📄 ml_models.py                # Modèles ML
-├── 📄 eda_analysis.py             # Analyses exploratoires
-├── 📄 financial_analysis.py       # Analyses financières
-├── 📄 donnees_simulation_onp.csv  # Données historiques
-├── 📄 requirements.txt            # Dépendances Python
-├── 📄 README.md                   # Ce fichier
-├── 📄 .gitignore                  # Fichiers à ignorer
-├── 📁 models/                     # Modèles ML sauvegardés
-└── 📁 scripts/                    # Scripts utilitaires
+📦 ONP Premium/
+├── 📄 app_premium.py          # Interface Elite (Entry Point)
+├── 📄 utils.py                # Coeur algorithmique & Normalisation
+├── 📄 ml_models.py            # Intelligence Artificielle (XGBoost)
+├── 📄 financial_analysis.py   # Analyse de rentabilité & Effet Prix/Vol
+├── 📄 simulateur_b2b.py       # Logique de marge mareyeur
+├── 📄 saisonnalite.py         # Moteur d'analyse saisonnière
+├── 📄 onp_assets.py           # Assets institutionnels & Mapping Images
+├── 📄 design_system.py        # Framework visuel Premium
+└── 📄 donnees_simulation_onp.csv # Data source granulaire
 ```
 
-## 🎨 Design
-
-- **Couleurs** : Dégradé bleu → cyan → vert (couleurs ONP)
-- **Effets** : Glassmorphism, animations, hover effects
-- **Typographie** : Poppins (Google Fonts)
-- **Framework** : Streamlit + Plotly
-
-## 🔧 Technologies
-
-| Catégorie | Technologies |
-|-----------|-------------|
-| **Frontend** | Streamlit, Plotly |
-| **Data Science** | Pandas, NumPy, SciPy |
-| **Machine Learning** | Scikit-learn, XGBoost |
-| **Visualisation** | Plotly, Matplotlib, Seaborn |
-
-## 📊 Résultats Attendus
-
-### Performances ML (exemple)
-
-| Modèle | RMSE (DH/kg) | MAE (DH/kg) | R² |
-|--------|--------------|-------------|-----|
-| Linear Regression | ~15-20 | ~10-15 | 0.75-0.80 |
-| Random Forest | ~10-15 | ~7-10 | 0.85-0.90 |
-| **XGBoost** ⭐ | **~8-12** | **~6-8** | **0.90-0.95** |
+## 🎨 Design Institutionnel
+L'application respecte la charte graphique de l'**ONP**, utilisant une palette "Économie Bleue" (Navy, Cyan, Emerald) avec une typographie moderne (**Outfit/Inter**) et des composants sur mesure pour une expérience utilisateur premium.
 
 ## 🎓 Contexte Académique
-
-**Projet de Fin d'Études (PFE)**  
-Master Finance & Data Science  
-Office National des Pêches (ONP) - Maroc
-
-### Compétences démontrées
-
-- ✅ Data Science & Machine Learning
-- ✅ Développement web (Streamlit)
-- ✅ Analyse financière
-- ✅ Visualisation de données
-- ✅ Communication technique
-
-## 📸 Screenshots
-
-*Ajoutez des captures d'écran de votre application ici*
-
-## 🤝 Contribution
-
-Ce projet est développé dans le cadre d'un PFE académique. Les contributions sont les bienvenues pour améliorer l'application.
-
-## 📄 Licence
-
-Projet académique - Master Finance & Data Science
-
-## 👤 Auteur
-
-**Votre Nom**  
-Master Finance & Data Science  
-📧 Email: votre.email@example.com  
-🔗 LinkedIn: [Votre Profil](https://linkedin.com/in/votre-profil)
-
-## 🙏 Remerciements
-
-- Office National des Pêches (ONP) - Maroc
-- Encadrants académiques
-- Équipe pédagogique Master Finance & Data Science
+Projet réalisé par **Reda Abousaid** dans le cadre du **Master Finance & Data Science**, en partenariat avec l'**Office National des Pêches**.
 
 ---
-
 **Développé avec ❤️ pour l'Office National des Pêches (ONP) - Maroc 🇲🇦**
