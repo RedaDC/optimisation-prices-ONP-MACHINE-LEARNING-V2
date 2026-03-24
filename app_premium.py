@@ -359,15 +359,23 @@ def _series(df, *names):
 def load_default_data():
     """Charge les données de base (Réelles si disponibles, sinon simulation)"""
     try:
-        # Priorité aux données réelles extraites pour avoir les chiffres officiels (11.3 MMM DH)
-        data_file = 'onp_real_ml_data.csv'
-        if not os.path.exists(data_file):
-            data_file = 'onp_reinforced_ml_data.csv'
-            
-        if os.path.exists(data_file):
+        # Ordre de priorité des fichiers de données
+        possible_files = [
+            'onp_real_ml_data.csv',
+            'donnees_simulation_onp.csv',
+            'onp_reinforced_ml_data.csv'
+        ]
+        
+        data_file = None
+        for f in possible_files:
+            if os.path.exists(f):
+                data_file = f
+                break
+                
+        if data_file and os.path.exists(data_file):
             df = pd.read_csv(data_file)
         else:
-            st.error(f"Fichier de données introuvable.")
+            st.error(f"Fichier de données introuvable (Vérifié: {', '.join(possible_files)})")
             return None
 
         if df is None or df.empty:
