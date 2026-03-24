@@ -2279,7 +2279,8 @@ def render_page_diminution_ca(df_default):
         st.markdown("<br>", unsafe_allow_html=True)
         col_left, col_right = st.columns([1, 1])
         
-            # Utiliser la fonction cachee pour charger les données
+        try:
+            # Utiliser la fonction cachée pour charger les données
             df_feuil1 = load_official_comparison_data()
             
             if not df_feuil1.empty:
@@ -2299,7 +2300,7 @@ def render_page_diminution_ca(df_default):
             # Aggregations for Tabs
             df_dr_agg = df_dr_only.groupby('DR')[['CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']].sum().reset_index()
             df_dr_agg = df_dr_agg.sort_values('VARIATION(KDh)')
-            
+                
             df_halles = df_dr_only[~df_dr_only['PORT'].astype(str).str.contains('MG', na=False, case=False)]
             df_top_halles = df_halles.sort_values('CA2025(KDh)', ascending=False).head(20)
             
