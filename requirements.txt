@@ -25,3 +25,4 @@ statsmodels
 openpyxl
 python-docx
 fpdf
+kaleido
