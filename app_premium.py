@@ -129,9 +129,21 @@ def load_official_comparison_data():
                     def safe_num_clean(v):
                         if pd.isna(v): return 0
                         if isinstance(v, (int, float)): return v
-                        v = str(v).replace(' ', '').replace('\xa0', '').replace(',', '.').replace("'", "")
-                        # Nettoyage additionnel des caractères invisibles ou non-numériques (sauf point et moins)
+                        v = str(v).strip().replace('\xa0', '').replace(' ', '').replace("'", "")
+                        # Cas particulier : 1.234,56 -> 1234.56
+                        if '.' in v and ',' in v:
+                            v = v.replace('.', '').replace(',', '.')
+                        elif ',' in v:
+                            # 1234,56 -> 1234.56
+                            v = v.replace(',', '.')
+                        
+                        # Nettoyage final des caractères non-numériques
                         import re
+                        # On garde le premier point décimal s'il y en a plusieurs (cas 1.234.567)
+                        if v.count('.') > 1:
+                            parts = v.split('.')
+                            v = "".join(parts[:-1]) + "." + parts[-1]
+                        
                         v = re.sub(r'[^0-9\.\-]', '', v)
                         try:
                             return float(v) if v else 0.0
@@ -2369,34 +2381,27 @@ def render_page_diminution_ca(df_default):
                 else:
                     df_dr_agg = pd.DataFrame(columns=['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'])
 
-                df_halles = pd.DataFrame()
-                df_top_halles = pd.DataFrame()
-                df_mg = pd.DataFrame()
-                df_port_export = pd.DataFrame()
-
-                if 'PORT' in df_dr_only.columns:
-                    df_halles = df_dr_only[~df_dr_only['PORT'].astype(str).str.contains('MG', na=False, case=False)]
-                    df_top_halles = df_halles.sort_values('CA2025(KDh)', ascending=False).head(20)
-
-                    df_mg = df_dr_only[df_dr_only['PORT'].astype(str).str.contains('MG', na=False, case=False)]
-                    if not df_mg.empty:
-                        df_mg = df_mg.sort_values('CA2025(KDh)', ascending=False)
+            # FALLBACK : Si toujours vide, on utilise le DF principal filtré
+            if df_dr_agg.empty and not df.empty:
+                df_main = df.copy()
+                if 'port' in df_main.columns:
+                    from utils import REGION_MAP
+                    df_main['DR'] = df_main['port'].str.upper().str.strip().map(REGION_MAP).fillna('AUTRE')
+                    df_agg_main = df_main.groupby(['DR', 'annee'])['recette_totale'].sum().unstack(fill_value=0).reset_index()
                     
-                    df_port_agg = df_dr_only.copy()
-                    df_port_agg = df_port_agg.rename(columns={'PORT': 'port', 'CA2024(KDh)': 'ca_2024_kdh', 'CA2025(KDh)': 'ca_2025_kdh', 'VARIATION(KDh)': 'ca_diff_kdh'})
-                    if not df_port_agg.empty and 'port' in df_port_agg.columns:
-                        df_port_export = df_port_agg.groupby('port')[['ca_2024_kdh', 'ca_2025_kdh', 'ca_diff_kdh']].sum().sort_values('ca_diff_kdh').reset_index()
-                else:
-                    # Si pas de colonne PORT, on utilise DR comme fallback pour le port_export
-                    df_port_agg = df_dr_only.copy()
-                    if 'DR' in df_port_agg.columns:
-                        df_port_agg = df_port_agg.rename(columns={'DR': 'port', 'CA2024(KDh)': 'ca_2024_kdh', 'CA2025(KDh)': 'ca_2025_kdh', 'VARIATION(KDh)': 'ca_diff_kdh'})
-                        if not df_port_agg.empty:
-                            df_port_export = df_port_agg.groupby('port')[['ca_2024_kdh', 'ca_2025_kdh', 'ca_diff_kdh']].sum().sort_values('ca_diff_kdh').reset_index()
+                    # Mapping 2024/2025
+                    if 2024 in df_agg_main.columns: df_agg_main['CA2024(KDh)'] = df_agg_main[2024] / 1000
+                    else: df_agg_main['CA2024(KDh)'] = 0
+                    
+                    if 2025 in df_agg_main.columns: df_agg_main['CA2025(KDh)'] = df_agg_main[2025] / 1000
+                    else: df_agg_main['CA2025(KDh)'] = 0
+                    
+                    df_agg_main['VARIATION(KDh)'] = df_agg_main['CA2025(KDh)'] - df_agg_main['CA2024(KDh)']
+                    df_dr_agg = df_agg_main[['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']].copy()
 
         except Exception as e:
             print(f"DEBUG: Exception in Delegation aggregation: {e}")
-            # Fallback extreme
+            # Fallback extreme via DF principal
             df_dr_agg = pd.DataFrame(columns=['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'])
             df_top_halles = pd.DataFrame()
             df_mg = pd.DataFrame()
