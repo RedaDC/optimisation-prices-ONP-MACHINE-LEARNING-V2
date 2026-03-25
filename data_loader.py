@@ -208,7 +208,6 @@ def extract_ml_data(file_input, output_path='onp_real_ml_data.csv'):
                         except: continue
                     # print(f"--- TRACE: Found {found_in_col} rows in this column couple.")
                 else:
-                else:
                     pass
 
     if ml_records:
