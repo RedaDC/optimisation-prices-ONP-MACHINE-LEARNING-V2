@@ -97,10 +97,9 @@ def inject_css_styles():
         }
 
         /* ============= HERO BANNER (ADAPTÉ AU THÈME CLAIR) ============= */
-        .hero-title, .hero-label, .hero-description, 
-        .hero-container div, .hero-container p, .hero-container span {
-            color: #0F172A !important;
-            text-shadow: none !important;
+        .hero-title, .hero-label, .hero-description {
+            color: #0F172A; /* Retrait du !important pour permettre l'override inline */
+            text-shadow: none;
         }
 
         /* ============= TITRES (RETOUR AU BLEU MARINE INSTITUTIONNEL) ============= */

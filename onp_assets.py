@@ -101,6 +101,13 @@ IMAGES_PECHE_MAROC = {
     "sole_ocellee": "assets/images/wiki_sole_ocellee.jpg",
     "sole_perdrix": "assets/images/wiki_sole_perdrix.jpg",
     "squale_et_requin": "assets/images/wiki_squale_et_requin.jpg",
+    "algue": "https://images.unsplash.com/photo-1590135338101-da796f6ae36b?auto=format&fit=crop&w=800&q=80",
+    "algue_rouge": "https://images.unsplash.com/photo-1590135338101-da796f6ae36b?auto=format&fit=crop&w=800&q=80",
+    "algue_gelidium": "https://images.unsplash.com/photo-1590135338101-da796f6ae36b?auto=format&fit=crop&w=800&q=80",
+    "baliste": "https://upload.wikimedia.org/wikipedia/commons/2/2a/Balistes_capriscus.jpg",
+    "ananas": "https://upload.wikimedia.org/wikipedia/commons/5/52/Cleidopus_gloriamaris.jpg",
+    "allache": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Sardinella_aurita_2.jpg",
+    "anguille": "https://upload.wikimedia.org/wikipedia/commons/2/23/Anguilla_anguilla.jpg",
     "hero_user": ""
 }
 

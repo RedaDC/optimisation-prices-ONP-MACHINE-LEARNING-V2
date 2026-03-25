@@ -97,8 +97,8 @@ def load_official_comparison_data():
             if os.path.exists(f):
                 try:
                     xl = pd.ExcelFile(f)
-                    # Priorité à Feuil6 (Synthèse détaillée) puis Feuil1
-                    target_sheets = ['Feuil6', 'Feuil1', 'extraction retraitée VF', 'RECAP']
+                    # Priorité à Feuil1 car elle est plus propre, puis Feuil6 (Synthèse détaillée)
+                    target_sheets = ['Feuil1', 'Extraction retraitée VF', 'RECAP', 'Feuil6']
                     sheet = next((s for s in target_sheets if s in xl.sheet_names), xl.sheet_names[0])
                     
                     df = pd.read_excel(f, sheet_name=sheet)
@@ -110,19 +110,26 @@ def load_official_comparison_data():
                     col_map = {
                         'DR/ESPECE': 'DR', 'DR / ESPECE': 'DR', 'DELEGATION': 'DR', 'REGION': 'DR',
                         'CA (KDH) 2024': 'CA2024(KDh)', 'CA (KDh) 2024': 'CA2024(KDh)', 
+                        'CA2024 (KDH)': 'CA2024(KDh)', 'CA 2024 (KDH)': 'CA2024(KDh)',
                         'CA2024(KDH)': 'CA2024(KDh)', 'CA2024(KDH)': 'CA2024(KDh)',
                         'CA (KDH) 2025': 'CA2025(KDh)', 'CA (KDh) 2025': 'CA2025(KDh)',
+                        'CA2025 (KDH)': 'CA2025(KDh)', 'CA 2025 (KDH)': 'CA2025(KDh)',
                         'CA2025(KDH)': 'CA2025(KDh)', 'CA2025(KDH)': 'CA2025(KDh)',
                         'VARIATION.1': 'VARIATION(KDh)', 'VARIATION(KDH)': 'VARIATION(KDh)',
+                        'VARIATION (KDH)': 'VARIATION(KDh)', 'VARIATION': 'VARIATION(KDh)',
                         'PORT': 'PORT'
                     }
                     df = df.rename(columns=col_map)
                     
+                    # S'assurer que les colonnes numériques sont bien lues (gestion des séparateurs de milliers)
+                    for col in ['CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']:
+                        if col in df.columns:
+                            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                            
                     # Vérification de la présence des colonnes minimales
                     if 'CA2024(KDh)' in df.columns:
                         # Si c'est Feuil6, on nettoie les noms de DR
                         if sheet == 'Feuil6' and 'DR' in df.columns:
-                            # Marquer les lignes qui sont probablement des DR (codes courts)
                             df['IS_DR'] = df['DR'].apply(lambda x: len(str(x)) <= 5 and str(x).isupper() if pd.notnull(x) else False)
                         return df
                 except Exception as ex:
@@ -343,12 +350,19 @@ def render_login_view():
     col1, col2, col3 = st.columns([1.5, 1.8, 1.5]) 
     with col2:
         st.markdown("""
-            <div class="onp-title-main">Plateforme d'Optimisation des Prix — V 2.2</div>
-            <div class="onp-subtitle-premium">by Reda Abousaid</div>
-            <div class="onp-subtitle-fr">Office National des Pêches</div>
-            <div class="onp-subtitle-ar">المكتب الوطني للصيد</div>
-            <div class="onp-divider"></div>
-            <div style="margin-top: 25px;"></div>
+            <div style="text-align: center; margin-bottom: 2.5rem;">
+                <div class="onp-subtitle-fr" style="color: #FFFFFF !important; text-shadow: 0 2px 10px rgba(0,0,0,0.8) !important; font-weight: 500 !important; letter-spacing: 2px !important;">
+                    Performance Halieutique
+                </div>
+                <div class="onp-title-main" style="color: #FFFFFF !important; background: none !important; -webkit-text-fill-color: #FFFFFF !important; font-size: 3.5rem !important; font-weight: 900 !important; line-height: 1.1 !important; margin: 1rem 0 !important; text-shadow: 0 4px 20px rgba(0,0,0,0.9) !important;">
+                    SOUVERAINETÉ<br/>HALIEUTIQUE
+                </div>
+                <div class="onp-tagline" style="color: #FFFFFF !important; font-size: 1.1rem !important; opacity: 1.0 !important; text-shadow: 0 2px 10px rgba(0,0,0,0.8) !important; background: none !important; -webkit-text-fill-color: #FFFFFF !important;">
+                    Intelligence augmentée pour la valorisation des produits de la mer.<br/>
+                    <span style="font-weight: 600;">by Reda Abousaid</span>
+                </div>
+                <div class="onp-divider" style="background: linear-gradient(90deg, transparent, #FFFFFF, transparent) !important; margin-top: 2rem !important;"></div>
+            </div>
         """, unsafe_allow_html=True)
         
         with st.form("login_form", clear_on_submit=False):
@@ -764,13 +778,13 @@ def render_onp_hero():
                 padding: 5rem; z-index: 2;
                 background: linear-gradient(90deg, rgba(11, 17, 32, 0.85) 0%, rgba(11, 17, 32, 0.4) 100%);
             ">
-                <div class="hero-label" style="color: #FFFFFF !important; opacity: 1.0; font-weight: 800; font-size: 1.25rem; letter-spacing: 6px; text-transform: uppercase; margin-bottom: 1.5rem; text-shadow: 0 4px 15px rgba(0,0,0,1);">
+                <div class="hero-label" style="color: #FFFFFF !important; opacity: 1.0 !important; font-weight: 800; font-size: 1.25rem; letter-spacing: 6px; text-transform: uppercase; margin-bottom: 1.5rem; text-shadow: 0 4px 15px rgba(0,0,0,1) !important;">
                     Performance Halieutique
                 </div>
-                <h1 class="hero-title" style="color: #FFFFFF !important; font-size: 5.2rem !important; font-weight: 950 !important; margin: 0; line-height: 1.0 !important; letter-spacing: -2px; text-shadow: 0 4px 15px rgba(0,0,0,1);">
-                    SOUVERAINETÉ <br/><span style="color: #FFFFFF !important; text-shadow: 0 4px 15px rgba(0,0,0,1);">HALIEUTIQUE</span>
+                <h1 class="hero-title" style="color: #FFFFFF !important; font-size: 5.2rem !important; font-weight: 950 !important; margin: 0; line-height: 1.0 !important; letter-spacing: -2px; text-shadow: 0 4px 15px rgba(0,0,0,1) !important; border: none !important;">
+                    SOUVERAINETÉ <br/><span style="color: #FFFFFF !important; text-shadow: 0 4px 15px rgba(0,0,0,1) !important;">HALIEUTIQUE</span>
                 </h1>
-                <p class="hero-description" style="color: #FFFFFF !important; font-size: 1.7rem !important; margin-top: 1.5rem; max-width: 750px; font-weight: 500 !important; line-height: 1.4; letter-spacing: 0.5px; opacity: 1.0; text-shadow: 0 4px 15px rgba(0,0,0,1);">
+                <p class="hero-description" style="color: #FFFFFF !important; font-size: 1.7rem !important; margin-top: 1.5rem; max-width: 750px; font-weight: 500 !important; line-height: 1.4 !important; letter-spacing: 0.5px; opacity: 1.0 !important; text-shadow: 0 4px 15px rgba(0,0,0,1) !important; border: none !important;">
                     Intelligence augmentée pour la valorisation des produits de la mer.
                 </p>
             </div>

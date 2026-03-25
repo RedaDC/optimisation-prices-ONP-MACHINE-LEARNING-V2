@@ -69,6 +69,12 @@ def normalize_species_name(name):
         'bogue': ['bogue_commun'],
         'poulpe': ['pieuvre'],
         'mulet_dore': ['mulet_dore', 'multe_dore', 'mulet', 'multe', 'mulet_sauteur', 'mulet_laberon', 'mulet_lippu'],
+        'auxide': ['bacorette', 'bonitou', 'bounitou'],
+        'algue': ['algue_gelidium', 'algue_rouge', 'algues', 'gelidium'],
+        'anemone_de_mer': ['anemone'],
+        'anguille': ['anguille_europeenne'],
+        'sole': ['sole_ruardon_commune', 'sole_rauradon_commune', 'sole_ceteau', 'sole_pole', 'sole_ocellee', 'sole_perdrix'],
+        'requin_ha': ['requin_he', 'emissole_lisse'],
     }
     
     # Nettoyage initial des suffixes génériques d'abord
@@ -247,17 +253,10 @@ def clean_data(df):
         unwanted = ['INCONNU', 'AUTRE', 'GROUPE INCONNU', 'AUTRES', 'INCONNUS']
         df_clean = df_clean[~df_clean['espece'].str.upper().str.strip().isin(unwanted)]
         
-        # Filtrage strict global: On supprime toutes les espèces qui n'ont pas d'image
-        def check_valid_image(esp):
-            if pd.isna(esp) or not str(esp).strip(): 
-                return False
-            norm = normalize_species_name(str(esp))
-            clean_name = norm.replace('_', ' ').upper()
-            if clean_name == "BAR": clean_name = "BAR (LOUP)"
-            return has_real_species_image(clean_name)
-            
-        mask_image = df_clean['espece'].apply(check_valid_image)
-        df_clean = df_clean[mask_image]
+        # Filtrage strict global: On garde toutes les espèces pour l'analyse métier
+        # même si l'image est manquante (on utilisera un fallback)
+        # mask_image = df_clean['espece'].apply(check_valid_image)
+        # df_clean = df_clean[mask_image]
     
     # Suppression des valeurs aberrantes
     # Prix négatifs ou nuls
