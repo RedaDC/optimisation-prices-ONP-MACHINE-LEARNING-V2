@@ -162,14 +162,14 @@ def load_official_comparison_data():
                             df['IS_DR'] = df['DR'].apply(lambda x: len(str(x)) <= 5 and str(x).isupper() if pd.notnull(x) else False)
                         return df
                     else:
-                        print(f"DEBUG: Colonnes insuffisantes dans {f} sheet {sheet}")
+                        # print(f"DEBUG: Colonnes insuffisantes dans {f} sheet {sheet}")
                         continue
                 except Exception as ex:
-                    print(f"DEBUG: Erreur sur {f} : {ex}")
+                    # print(f"DEBUG: Erreur sur {f} : {ex}")
                     continue
         return pd.DataFrame()
     except Exception as e:
-        print(f"DEBUG Error outer: {e}")
+        # print(f"DEBUG Error outer: {e}")
         return pd.DataFrame()
 
 # ==================== CONFIGURATION ====================
@@ -500,7 +500,7 @@ def load_default_data():
             st.warning("Les données ont été filtrées à 100% lors du nettoyage (Outliers/Negative values).")
             return None
             
-        print(f"DONE: {len(df)} lignes chargees avec succes")
+        # print(f"DONE: {len(df)} lignes chargees avec succes")
         return df
             
     except Exception as e:
@@ -775,7 +775,7 @@ def get_base64_image(image_path):
             encoded_string = base64.b64encode(img_file.read()).decode()
             return f"data:{mime_type};base64,{encoded_string}"
     except Exception as e:
-        print(f"Error encoding image {image_path}: {e}")
+        # print(f"Error encoding image {image_path}: {e}")
         return image_path
 
 def render_onp_hero():
@@ -2400,7 +2400,7 @@ def render_page_diminution_ca(df_default):
                     df_dr_agg = df_agg_main[['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']].copy()
 
         except Exception as e:
-            print(f"DEBUG: Exception in Delegation aggregation: {e}")
+            # st.write(f"DEBUG: Exception in Delegation aggregation: {e}")
             # Fallback extreme via DF principal
             df_dr_agg = pd.DataFrame(columns=['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'])
             df_top_halles = pd.DataFrame()

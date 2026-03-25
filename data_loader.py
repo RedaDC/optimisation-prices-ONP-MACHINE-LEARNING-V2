@@ -7,7 +7,7 @@ def extract_ml_data(file_input, output_path='onp_real_ml_data.csv'):
     Extrait les données mensuelles détaillées pour l'entraînement du Machine Learning.
     Version robuste : Scan intelligent des en-têtes pour détecter Port, Espèce, Dates et Métriques.
     """
-    print(f"--- TRACE: Beginning extraction for {file_input}")
+    # print(f"--- TRACE: Beginning extraction for {file_input}")
     try:
         xl = pd.ExcelFile(file_input)
         
@@ -41,14 +41,14 @@ def extract_ml_data(file_input, output_path='onp_real_ml_data.csv'):
             # Priorité aux feuilles qui semblent être des extractions brutes pour avoir tout le détail
             best_candidates = [s for s, score in sheet_candidates if "brute" in s.lower() or "extraction" in s.lower()]
             sheet_name = best_candidates[0] if best_candidates else sheet_candidates[0][0]
-            print(f"--- TRACE: Best sheet candidate: '{sheet_name}' (score {sheet_candidates[0][1]})")
+            # print(f"--- TRACE: Best sheet candidate: '{sheet_name}' (score {sheet_candidates[0][1]})")
         else:
             sheet_name = xl.sheet_names[0]
-            print(f"--- TRACE: No candidates, using first sheet: '{sheet_name}'")
+            # print(f"--- TRACE: No candidates, using first sheet: '{sheet_name}'")
             
         df = xl.parse(sheet_name, header=None)
     except Exception as e:
-        print(f"--- TRACE ERROR: {e}")
+        # print(f"--- TRACE ERROR: {e}")
         return None
 
     # 2. Identification de la ligne d'en-tête principale
@@ -63,9 +63,9 @@ def extract_ml_data(file_input, output_path='onp_real_ml_data.csv'):
             header_idx = i
             
     if header_idx == -1:
-        print("--- TRACE: Could not identify header row.")
+        # print("--- TRACE: Could not identify header row.")
         return None
-    print(f"--- TRACE: Header row identified at index {header_idx}")
+    # print(f"--- TRACE: Header row identified at index {header_idx}")
     
     # 3. Scan des colonnes
     header_area = df.iloc[:header_idx+1].copy()
@@ -101,7 +101,7 @@ def extract_ml_data(file_input, output_path='onp_real_ml_data.csv'):
         elif len(main_row_strs) > 4 and "esp" in main_row_strs[4]:
             col_species = 4
 
-    print(f"--- TRACE: Port column: {col_port}, Species column: {col_species} (Source: {main_row_strs[:6]})")
+    # print(f"--- TRACE: Port column: {col_port}, Species column: {col_species} (Source: {main_row_strs[:6]})")
 
     ml_records = []
     import re
@@ -166,10 +166,10 @@ def extract_ml_data(file_input, output_path='onp_real_ml_data.csv'):
                 
                 if year and not month:
                     month = 12
-                    print(f"--- TRACE: Annual data detected for {year}, defaulting to month 12")
+                    # print(f"--- TRACE: Annual data detected for {year}, defaulting to month 12")
 
                 if year and month:
-                    print(f"--- TRACE: Processing Col {c} (Vol) & {ca_idx} (CA) for {month}/{year}")
+                    # print(f"--- TRACE: Processing Col {c} (Vol) & {ca_idx} (CA) for {month}/{year}")
                     data_slice = df.iloc[header_idx + 1:].copy()
                     current_port = "Unknown"
                     found_in_col = 0
@@ -206,21 +206,21 @@ def extract_ml_data(file_input, output_path='onp_real_ml_data.csv'):
                                 })
                                 found_in_col += 1
                         except: continue
-                    print(f"--- TRACE: Found {found_in_col} rows in this column couple.")
+                    # print(f"--- TRACE: Found {found_in_col} rows in this column couple.")
                 else:
-                    print(f"--- TRACE: Skipped Col {c} - Date components missing (Year: {year}, Month: {month})")
+                    # print(f"--- TRACE: Skipped Col {c} - Date components missing (Year: {year}, Month: {month})")
 
     if ml_records:
         ml_df = pd.DataFrame(ml_records)
         ml_df = ml_df[ml_df['port'].str.len() > 1]
         ml_df.to_csv(output_path, index=False)
-        print(f"--- TRACE SUCCESS: {len(ml_df)} total records saved.")
+        # print(f"--- TRACE SUCCESS: {len(ml_df)} total records saved.")
         return ml_df
     
-    print("--- TRACE WARNING: No records found at the end.")
+    # print("--- TRACE WARNING: No records found at the end.")
     return None
     
-    print("WARNING: No data records found.")
+    # print("WARNING: No data records found.")
     return None
 
 def process_onp_report(file_input, output_path=None):
@@ -253,10 +253,10 @@ def process_onp_report(file_input, output_path=None):
         else:
             sheet_name = 'RECAP' if 'RECAP' in xl.sheet_names else ('Feuil2' if 'Feuil2' in xl.sheet_names else xl.sheet_names[0])
             
-        print(f"DEBUG: process_onp_report using sheet: '{sheet_name}'")
+        # print(f"DEBUG: process_onp_report using sheet: '{sheet_name}'")
         df = xl.parse(sheet_name, header=None)
     except Exception as e:
-        print(f"Erreur lecture Excel: {e}")
+        # print(f"Erreur lecture Excel: {e}")
         return None
 
     
@@ -361,7 +361,7 @@ def process_onp_report(file_input, output_path=None):
                     p, dr = str(row['PORT']).strip().upper(), str(row['DR']).strip().upper()
                     if p not in map_dict: map_dict[p] = dr
     except Exception as e:
-        print(f"Erreur extraction mapping: {e}")
+        # print(f"Erreur extraction mapping: {e}")
 
     def get_delegation(p):
         p_up = str(p).strip().upper()
@@ -385,8 +385,8 @@ def process_onp_report(file_input, output_path=None):
     
     if output_path:
         final_df.to_csv(output_path, index=False)
-        print(f"Extraction terminee via feuille '{sheet_name}'")
-        print(f"Total CA 2024: {final_df['ca_2024_kdh'].sum():,.2f} KDh")
-        print(f"Total Vol 2024: {final_df['vol_2024_t'].sum():,.2f} Tonnes")
+        # print(f"Extraction terminee via feuille '{sheet_name}'")
+        # print(f"Total CA 2024: {final_df['ca_2024_kdh'].sum():,.2f} KDh")
+        # print(f"Total Vol 2024: {final_df['vol_2024_t'].sum():,.2f} Tonnes")
         
     return final_df
