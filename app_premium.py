@@ -2911,6 +2911,9 @@ def render_page_simulateur_b2b():
 
 def render_page_saisonnalite(df):
     """Page d'analyse de saisonnalité des prix — 4 facteurs interactifs"""
+    import saisonnalite
+    import importlib
+    importlib.reload(saisonnalite)
     from saisonnalite import (
         CALENDRIER_BIOLOGIQUE, MOIS_LABELS,
         build_seasonality_dashboard, build_summary_table
