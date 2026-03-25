@@ -133,11 +133,14 @@ def load_official_comparison_data():
                             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
                             
                     # Vérification de la présence des colonnes minimales
-                    if 'CA2024(KDh)' in df.columns:
+                    if 'CA2024(KDh)' in df.columns and 'CA2025(KDh)' in df.columns:
                         # Si c'est Feuil6, on nettoie les noms de DR
                         if sheet == 'Feuil6' and 'DR' in df.columns:
                             df['IS_DR'] = df['DR'].apply(lambda x: len(str(x)) <= 5 and str(x).isupper() if pd.notnull(x) else False)
                         return df
+                    else:
+                        print(f"DEBUG: Colonnes insuffisantes dans {f} sheet {sheet}")
+                        continue
                 except Exception as ex:
                     print(f"DEBUG: Erreur sur {f} : {ex}")
                     continue
