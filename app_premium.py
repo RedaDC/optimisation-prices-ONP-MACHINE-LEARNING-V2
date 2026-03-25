@@ -840,11 +840,11 @@ def render_module_hero(title, subtitle, image_key="real_port"):
                 top: 0; left: 0; right: 0; bottom: 0;
                 display: flex; flex-direction: column; justify-content: center;
                 padding-left: 3rem; z-index: 2;
-                background: linear-gradient(90deg, rgba(3, 105, 161, 0.95) 0%, rgba(15, 23, 42, 0) 100%);
+                background: linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(3, 105, 161, 0.6) 50%, rgba(15, 23, 42, 0) 100%);
             ">
-                <h2 style="color: white !important; font-size: 2.5rem !important; font-weight: 800 !important; margin: 0; letter-spacing: -1px;">{title}</h2>
-                <div style="height: 3px; width: 60px; background: #BAE6FD; margin: 1rem 0;"></div>
-                <p style="color: rgba(255,255,255,0.9) !important; font-size: 1.1rem !important; margin: 0; font-weight: 400; max-width: 600px;">
+                <h2 style="color: #F8FAFC !important; text-shadow: 2px 2px 8px rgba(0,0,0,0.9) !important; font-size: 2.8rem !important; font-weight: 900 !important; margin: 0; letter-spacing: -1px;">{title}</h2>
+                <div style="height: 4px; width: 80px; background: #38BDF8; margin: 1rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.5);"></div>
+                <p style="color: #F1F5F9 !important; text-shadow: 1px 1px 5px rgba(0,0,0,0.9) !important; font-size: 1.15rem !important; margin: 0; font-weight: 500; max-width: 600px;">
                     {subtitle}
                 </p>
             </div>
@@ -1440,7 +1440,7 @@ def render_page_financial(df):
     render_module_hero(
         "Analyse Financière",
         "Performance économique, rentabilité et vision stratégique des flux",
-        "sardines_poisson"
+        "marche_poisson"
     )
     
     if df.empty:
@@ -2306,6 +2306,13 @@ def render_page_diminution_ca(df_default):
         col_left, col_right = st.columns([1, 1])
         
         try:
+            # Sécurisation des dataframes vides (anti-crash)
+            df_dr_agg = pd.DataFrame(columns=['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'])
+            df_halles = pd.DataFrame()
+            df_top_halles = pd.DataFrame()
+            df_mg = pd.DataFrame()
+            df_port_export = pd.DataFrame()
+
             # Utiliser la fonction cachée pour charger les données
             df_feuil1 = load_official_comparison_data()
             
@@ -2916,44 +2923,23 @@ def render_page_saisonnalite(df):
         st.warning("Données insuffisantes.")
         return
 
-    # ── Choix du niveau d'analyse ────────────────────────────────────
-    niveau_analyse = st.radio(
-        "Niveau d'analyse :",
-        ["Catégories (Global)", "Espèces détaillées (Sardine, Poulpe, Merlu...)"],
-        horizontal=True
-    )
+    # Utiliser la colonne la plus propre pour l'affichage (espece_clean si disponible)
+    col_espece = 'espece_clean' if 'espece_clean' in df.columns else 'espece'
     
+    st.markdown("<p style='color:#64748B;'>Sélectionnez une ou plusieurs entités pour explorer la saisonnalité, les périodes de repos biologique, et les corrélations (climat/marché).</p>", unsafe_allow_html=True)
     st.markdown("<hr style='margin-top:0.5rem; margin-bottom:1.5rem;'/>", unsafe_allow_html=True)
-    
-    if "Espèces" in niveau_analyse:
-        import os
-        detailed_file = 'onp_reinforced_ml_data.csv.bak'
-        if os.path.exists(detailed_file):
-            with st.spinner("Chargement des espèces détaillées..."):
-                try:
-                    df_detail = pd.read_csv(detailed_file)
-                    if 'date_vente' in df_detail.columns:
-                        df_detail['date_vente'] = pd.to_datetime(df_detail['date_vente'], errors='coerce')
-                        df_detail['annee'] = df_detail['date_vente'].dt.year
-                        df_detail['mois'] = df_detail['date_vente'].dt.month
-                    # Ne garder que les années 2024-2025 pour la cohérence du Dashboard
-                    df = df_detail[df_detail['annee'].isin([2024, 2025])].dropna(subset=['annee', 'mois', 'espece'])
-                except Exception as e:
-                    st.error(f"Erreur chargement données détaillées: {e}")
-        else:
-            st.warning("Fichier d'espèces détaillées introuvable.")
 
     # ── Filtres ──────────────────────────────────────────────────────
-    all_especes = sorted(df['espece'].dropna().unique().tolist())
+    all_especes = sorted(df[col_espece].dropna().unique().tolist())
     all_annees = sorted(df['annee'].dropna().astype(int).unique().tolist())
 
     col_f1, col_f2 = st.columns([2, 1])
     with col_f1:
         espece_sel = st.multiselect(
-            "Sélection des Espèces / Catégories",
+            "Recherche Rapide (Toutes les Espèces)",
             all_especes,
             default=all_especes[:2] if len(all_especes) >= 2 else all_especes,
-            help="Sélectionnez une ou plusieurs entités pour agréger l'analyse."
+            help="Sélectionnez une ou plusieurs espèces parmi toutes celles disponibles dans la base ONP."
         )
     with col_f2:
         annee_sel = st.multiselect(
@@ -2990,7 +2976,7 @@ def render_page_saisonnalite(df):
     from saisonnalite import get_monthly_stats, FUEL_PRICES_2024, FUEL_PRICES_2025
     kpi_cols = st.columns(4)
     for i, annee in enumerate(annee_sel[:4]):
-        monthly = get_monthly_stats(df, espece_sel, annee)
+        monthly = get_monthly_stats(df, espece_sel, annee, col_espece=col_espece)
         ca_total = (monthly['prix_moy'] * monthly['vol_t']).sum()
         vol_total = monthly['vol_t'].sum()
         prix_max_mois = MOIS_LABELS[monthly['prix_moy'].idxmax()]
@@ -3008,13 +2994,13 @@ def render_page_saisonnalite(df):
 
     # ── Dashboard 4 panneaux ─────────────────────────────────────────
     with st.spinner("Construction du dashboard saisonnalité..."):
-        fig = build_seasonality_dashboard(df, espece_sel, annee_sel)
+        fig = build_seasonality_dashboard(df, espece_sel, annee_sel, col_espece=col_espece)
         fig = apply_premium_plotly_styling(fig)
         st.plotly_chart(fig, use_container_width=True)
 
     # ── Table de synthèse ────────────────────────────────────────────
     with st.expander("Table de Synthèse Mensuelle (Exportable)", expanded=False):
-        df_tbl = build_summary_table(df, espece_sel, annee_sel)
+        df_tbl = build_summary_table(df, espece_sel, annee_sel, col_espece=col_espece)
         st.dataframe(df_tbl, use_container_width=True, hide_index=True)
         csv_bytes = df_tbl.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -3029,7 +3015,7 @@ def render_page_saisonnalite(df):
     from saisonnalite import get_monthly_stats, compute_fuel_correlation, get_fuel_series
     insight_cols = st.columns(2)
     for i, annee in enumerate(annee_sel):
-        monthly = get_monthly_stats(df, espece_sel, annee)
+        monthly = get_monthly_stats(df, espece_sel, annee, col_espece=col_espece)
         fuel = get_fuel_series(annee)
         corr = compute_fuel_correlation(monthly['prix_moy'].tolist(), fuel)
         vol_peak = MOIS_LABELS[monthly['vol_t'].idxmax()]

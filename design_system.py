@@ -193,15 +193,16 @@ class PremiumComponents:
         """, unsafe_allow_html=True)
 
     @staticmethod
-    def section_header(title, subtitle="", icon_name=None, color="#0369A1"):
+    def section_header(title, subtitle="", icon_name=None, color="#0369A1", text_color="#0F172A"):
         """En-tête de section institutionnel"""
         icon_html = LuxIcons.render(icon_name, size=28, color=color, extra_style="margin-right: 12px;") if icon_name else ""
+        subtitle_color = text_color if text_color != "#0F172A" else "#64748B"
         st.markdown(f"""
-            <div style="display: flex; align-items: center; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid #F1F5F9;">
+            <div style="display: flex; align-items: center; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid rgba(241, 245, 249, 0.2);">
                 {icon_html}
                 <div>
-                    <h2 style="margin: 0; color: #0F172A !important; font-size: 1.5rem; font-weight: 800;">{title}</h2>
-                    <p style="margin: 2px 0 0 0; color: #64748B; font-size: 0.95rem;">{subtitle}</p>
+                    <h2 style="margin: 0; color: {text_color} !important; font-size: 1.5rem; font-weight: 800;">{title}</h2>
+                    <p style="margin: 2px 0 0 0; color: {subtitle_color}; font-size: 0.95rem;">{subtitle}</p>
                 </div>
             </div>
         """, unsafe_allow_html=True)

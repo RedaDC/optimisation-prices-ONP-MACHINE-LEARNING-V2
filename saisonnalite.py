@@ -61,18 +61,17 @@ def get_biocalendar_for_species(esp: str) -> dict:
     esp_up = str(esp).upper()
     if esp_up in CALENDRIER_BIOLOGIQUE: return CALENDRIER_BIOLOGIQUE[esp_up]
     
-    if any(x in esp_up for x in ['POULPE', 'CALMAR', 'SEICHE', 'ENCORNET']):
+    if any(x in esp_up for x in ['POULPE', 'CALMAR', 'SEICHE', 'ENCORNET', 'SUPION']):
         return CALENDRIER_BIOLOGIQUE['CEPHALOPODES']
-    if any(x in esp_up for x in ['SARDINE', 'MAQUEREAU', 'ANCHOIS', 'CHINCHARD']):
+    if any(x in esp_up for x in ['SARDINE', 'MAQUEREAU', 'ANCHOIS', 'CHINCHARD', 'ALLACHE', 'SAUREL', 'SARDINELLE', 'THON', 'ESPADON', 'BONITE', 'ALBACORE', 'GERMON']):
         return CALENDRIER_BIOLOGIQUE['POISSON PELAGIQUE']
-    if any(x in esp_up for x in ['CREVETTE', 'LANGOUSTE', 'HOMARD', 'CRABE', 'ARAIGNEE']):
+    if any(x in esp_up for x in ['CREVETTE', 'LANGOUSTE', 'HOMARD', 'CRABE', 'ARAIGNEE', 'CIGALE', 'GAMBA']):
         return CALENDRIER_BIOLOGIQUE['CRUSTACES']
-    if any(x in esp_up for x in ['MERLU', 'SOLE', 'PAGEOT', 'DORADE', 'BAR', 'BADECHE']):
+    if any(x in esp_up for x in ['MERLU', 'SOLE', 'PAGEOT', 'DORADE', 'BAR', 'BADECHE', 'SAR', 'MAIGRE', 'OMBRINE', 'ROUGET', 'CONGRE', 'BAUDROIE', 'MULET', 'SAINT PIERRE', 'CORB']):
         return CALENDRIER_BIOLOGIQUE['POISSON BLANC']
-    if any(x in esp_up for x in ['MOULE', 'HUITRE', 'COQUE', 'PRAIRE', 'PALOURDE']):
+    if any(x in esp_up for x in ['MOULE', 'HUITRE', 'COQUE', 'PRAIRE', 'PALOURDE', 'VERNIS', 'CHAMA', 'COQUILLAGES', 'BIGORNEAU', 'MUREX']):
         return CALENDRIER_BIOLOGIQUE['COQUILLAGES']
-    # Algues spécifiques
-    if 'ALGUE' in esp_up:
+    if 'ALGUE' in esp_up or 'GELIDIUM' in esp_up or 'GIGARTINA' in esp_up:
          return CALENDRIER_BIOLOGIQUE['ALGUES']
          
     return {}
