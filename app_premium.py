@@ -121,10 +121,15 @@ def load_official_comparison_data():
                         'PORT': 'PORT'
                     }
                     df = df.rename(columns=col_map)
-                    
-                    # S'assurer que les colonnes numériques sont bien lues (gestion des séparateurs de milliers)
+                     # S'assurer que les colonnes numériques sont bien lues (gestion des séparateurs de milliers)
+                    def safe_num_clean(v):
+                        if isinstance(v, str):
+                            v = v.replace(' ', '').replace('\xa0', '').replace(',', '.')
+                        return v
+
                     for col in ['CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']:
                         if col in df.columns:
+                            df[col] = df[col].apply(safe_num_clean)
                             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
                             
                     # Vérification de la présence des colonnes minimales
