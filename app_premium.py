@@ -114,12 +114,15 @@ def load_official_comparison_data():
                         'CA2024(KDH)': 'CA2024(KDh)', 'CA2024(KDH)': 'CA2024(KDh)',
                         'CA (KDH) 2025': 'CA2025(KDh)', 'CA (KDh) 2025': 'CA2025(KDh)',
                         'CA2025 (KDH)': 'CA2025(KDh)', 'CA 2025 (KDH)': 'CA2025(KDh)',
-                        'CA2025(KDH)': 'CA2025(KDh)', 'CA2025(KDH)': 'CA2025(KDh)',
                         'VARIATION.1': 'VARIATION(KDh)', 'VARIATION(KDH)': 'VARIATION(KDh)',
                         'VARIATION (KDH)': 'VARIATION(KDh)', 'VARIATION': 'VARIATION(KDh)',
                         'VARIATION CA EN VALEURS': 'VARIATION(KDh)', 'VARIATION VOLUMES EN VALEURS': 'VARIATION VOLUMES EN VALEURS',
-                        'VAR (KDH)': 'VARIATION(KDh)', 'VAR.': 'VARIATION(KDh)',
-                        'PORT': 'PORT', 'ENTITÉ': 'PORT', 'HALLE': 'PORT'
+                        'VAR (KDH)': 'VARIATION(KDh)', 'VAR.': 'VARIATION(KDh)', 'VARIANCE': 'VARIATION(KDh)',
+                        'CA2024': 'CA2024(KDh)', 'CA2025': 'CA2025(KDh)',
+                        'CA (2024)': 'CA2024(KDh)', 'CA (2025)': 'CA2025(KDh)',
+                        'CA 2024': 'CA2024(KDh)', 'CA 2025': 'CA2025(KDh)',
+                        'RECETTE 2024': 'CA2024(KDh)', 'RECETTE 2025': 'CA2025(KDh)',
+                        'PORT': 'PORT', 'ENTITÉ': 'PORT', 'HALLE': 'PORT', 'BUREAUX': 'PORT', 'MG': 'PORT'
                     }
                     df = df.rename(columns=col_map)
                     # S'assurer que les colonnes numériques sont bien lues (gestion des séparateurs de milliers)
@@ -2401,17 +2404,20 @@ def render_page_diminution_ca(df_default):
         
         with col_left:
             st.markdown("#### Part de Marché par Délégation (CA 2024)")
-            if not df_dr_agg.empty and df_dr_agg['CA2024(KDh)'].sum() > 0:
+            if not df_dr_agg.empty:
+                # Si CA2024(KDh) est à 0 mais qu'on a CA2025, on montre 2025
+                pie_val = 'CA2024(KDh)' if df_dr_agg['CA2024(KDh)'].sum() > 0 else 'CA2025(KDh)'
                 fig_pie = px.pie(
                     df_dr_agg, 
                     names='DR', 
-                    values='CA2024(KDh)',
+                    values=pie_val,
                     hole=0.4,
+                    title=f"Répartition par {pie_val}",
                     color_discrete_sequence=px.colors.qualitative.Vivid
                 )
                 st.plotly_chart(apply_premium_plotly_styling(fig_pie), width="stretch")
             else:
-                st.info("Données CA 2024 insuffisantes pour le graphique.")
+                st.info("Données insuffisantes pour le graphique de part de marché.")
             
         with col_right:
             st.markdown("#### Top Variations par Délégation (KDh)")

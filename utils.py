@@ -75,6 +75,7 @@ def normalize_species_name(name):
         'anguille': ['anguille_europeenne'],
         'sole': ['sole_ruardon_commune', 'sole_rauradon_commune', 'sole_ceteau', 'sole_pole', 'sole_ocellee', 'sole_perdrix'],
         'requin_ha': ['requin_he', 'emissole_lisse'],
+        'abadeche': ['abadeche_rose', 'abade', 'kingklip', 'abadèche'],
     }
     
     # Nettoyage initial des suffixes génériques d'abord
