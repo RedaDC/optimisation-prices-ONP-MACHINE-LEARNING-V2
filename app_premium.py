@@ -755,7 +755,7 @@ def render_onp_hero():
         
         # Fallback robuste
         if not hero_image or (isinstance(hero_image, str) and len(hero_image) < 100 and not hero_image.startswith("http")):
-            hero_image = "https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?auto=format&fit=crop&w=1920&q=80"
+            hero_image = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Fish_market_in_Tsukiji.jpg/1200px-Fish_market_in_Tsukiji.jpg"
             
         st.markdown(f"""
         <div style="
@@ -2317,33 +2317,51 @@ def render_page_diminution_ca(df_default):
                 # Filtrage pour ne garder que les lignes de DR (données agrégées ou lignes propres)
                 if 'DR' in df_feuil1.columns:
                     if 'IS_DR' in df_feuil1.columns:
-                        # Priorité au flag intelligent de détection de DR
                         df_dr_only = df_feuil1[df_feuil1['IS_DR'] == True].copy()
                     else:
                         df_dr_only = df_feuil1[~df_feuil1['DR'].astype(str).str.contains('Total|Maroc', na=False, case=False)].copy()
                 else:
                     df_dr_only = df_feuil1.copy()
-                
+
                 # Supprimer les lignes où CA est nul (car Feuil6 contient des espèces sous les DR)
-                df_dr_only = df_dr_only[df_dr_only['CA2024(KDh)'] > 0]
-            
-            # Aggregations for Tabs
-            df_dr_agg = df_dr_only.groupby('DR')[['CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']].sum().reset_index()
-            df_dr_agg = df_dr_agg.sort_values('VARIATION(KDh)')
-                
-            df_halles = df_dr_only[~df_dr_only['PORT'].astype(str).str.contains('MG', na=False, case=False)]
-            df_top_halles = df_halles.sort_values('CA2025(KDh)', ascending=False).head(20)
-            
-            df_mg = df_dr_only[df_dr_only['PORT'].astype(str).str.contains('MG', na=False, case=False)]
-            df_mg = df_mg.sort_values('CA2025(KDh)', ascending=False)
-            
-            # Safe map back for the Word Export expectations
-            df_port_agg = df_dr_only.copy()
-            df_port_agg = df_port_agg.rename(columns={'PORT': 'port', 'CA2024(KDh)': 'ca_2024_kdh', 'CA2025(KDh)': 'ca_2025_kdh', 'VARIATION(KDh)': 'ca_diff_kdh'})
-            df_port_export = df_port_agg.groupby('port')[['ca_2024_kdh', 'ca_2025_kdh', 'ca_diff_kdh']].sum().sort_values('ca_diff_kdh').reset_index()
+                if 'CA2024(KDh)' in df_dr_only.columns:
+                    df_dr_only = df_dr_only[(df_dr_only['CA2024(KDh)'] > 0) | (df_dr_only['CA2025(KDh)'] > 0)]
+
+                # Aggregations for Tabs
+                if 'DR' in df_dr_only.columns and not df_dr_only.empty:
+                    df_dr_agg = df_dr_only.groupby('DR')[['CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']].sum().reset_index()
+                    df_dr_agg = df_dr_agg.sort_values('VARIATION(KDh)')
+                else:
+                    df_dr_agg = pd.DataFrame(columns=['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'])
+
+                df_halles = pd.DataFrame()
+                df_top_halles = pd.DataFrame()
+                df_mg = pd.DataFrame()
+                df_port_export = pd.DataFrame()
+
+                if 'PORT' in df_dr_only.columns:
+                    df_halles = df_dr_only[~df_dr_only['PORT'].astype(str).str.contains('MG', na=False, case=False)]
+                    df_top_halles = df_halles.sort_values('CA2025(KDh)', ascending=False).head(20)
+
+                    df_mg = df_dr_only[df_dr_only['PORT'].astype(str).str.contains('MG', na=False, case=False)]
+                    if not df_mg.empty:
+                        df_mg = df_mg.sort_values('CA2025(KDh)', ascending=False)
+                    
+                    df_port_agg = df_dr_only.copy()
+                    df_port_agg = df_port_agg.rename(columns={'PORT': 'port', 'CA2024(KDh)': 'ca_2024_kdh', 'CA2025(KDh)': 'ca_2025_kdh', 'VARIATION(KDh)': 'ca_diff_kdh'})
+                    if not df_port_agg.empty and 'port' in df_port_agg.columns:
+                        df_port_export = df_port_agg.groupby('port')[['ca_2024_kdh', 'ca_2025_kdh', 'ca_diff_kdh']].sum().sort_values('ca_diff_kdh').reset_index()
+                else:
+                    # Si pas de colonne PORT, on utilise DR comme fallback pour le port_export
+                    df_port_agg = df_dr_only.copy()
+                    if 'DR' in df_port_agg.columns:
+                        df_port_agg = df_port_agg.rename(columns={'DR': 'port', 'CA2024(KDh)': 'ca_2024_kdh', 'CA2025(KDh)': 'ca_2025_kdh', 'VARIATION(KDh)': 'ca_diff_kdh'})
+                        if not df_port_agg.empty:
+                            df_port_export = df_port_agg.groupby('port')[['ca_2024_kdh', 'ca_2025_kdh', 'ca_diff_kdh']].sum().sort_values('ca_diff_kdh').reset_index()
 
         except Exception as e:
-            # Fallback
+            print(f"DEBUG: Exception in Delegation aggregation: {e}")
+            # Fallback extreme
             df_dr_agg = pd.DataFrame(columns=['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'])
             df_top_halles = pd.DataFrame()
             df_mg = pd.DataFrame()
