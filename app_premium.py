@@ -2353,10 +2353,16 @@ def render_page_diminution_ca(df_default):
                 if 'CA2024(KDh)' in df_dr_only.columns:
                     df_dr_only = df_dr_only[(df_dr_only['CA2024(KDh)'] > 0) | (df_dr_only['CA2025(KDh)'] > 0)]
 
-                # Aggregations for Tabs
+                # Aggregations for Tabs - Mega Robust
                 if 'DR' in df_dr_only.columns and not df_dr_only.empty:
-                    df_dr_agg = df_dr_only.groupby('DR')[['CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']].sum().reset_index()
-                    df_dr_agg = df_dr_agg.sort_values('VARIATION(KDh)')
+                    # Dynamically identify available numeric columns to sum
+                    avail_cols = [c for c in ['CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'] if c in df_dr_only.columns]
+                    if avail_cols:
+                        df_dr_agg = df_dr_only.groupby('DR')[avail_cols].sum().reset_index()
+                        if 'VARIATION(KDh)' in df_dr_agg.columns:
+                            df_dr_agg = df_dr_agg.sort_values('VARIATION(KDh)')
+                    else:
+                        df_dr_agg = pd.DataFrame(columns=['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'])
                 else:
                     df_dr_agg = pd.DataFrame(columns=['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'])
 
