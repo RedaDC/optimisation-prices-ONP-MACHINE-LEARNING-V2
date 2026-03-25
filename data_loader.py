@@ -361,6 +361,7 @@ def process_onp_report(file_input, output_path=None):
                     p, dr = str(row['PORT']).strip().upper(), str(row['DR']).strip().upper()
                     if p not in map_dict: map_dict[p] = dr
     except Exception as e:
+        pass
         # print(f"Erreur extraction mapping: {e}")
 
     def get_delegation(p):
