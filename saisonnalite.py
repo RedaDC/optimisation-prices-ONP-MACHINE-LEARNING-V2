@@ -98,14 +98,14 @@ SEA_TEMP_NORME = [17.0, 16.5, 17.2, 18.0, 18.8, 20.2,
 # 2. FONCTIONS D'AGRÉGATION DES DONNÉES
 # ═══════════════════════════════════════════════════════════════════
 
-def get_monthly_stats(df: pd.DataFrame, espece_list: list, annee: int) -> pd.DataFrame:
+def get_monthly_stats(df: pd.DataFrame, espece_list: list, annee: int, col_espece: str = 'espece') -> pd.DataFrame:
     """
     Calcule les statistiques mensuelles agrégées pour une liste de catégories d'espèces.
     Returns DataFrame with mois 1-12, vol_t (tonnes), prix_moy (DH/kg), ca_kdh.
     """
     mask = (df['annee'] == annee)
     if espece_list:
-        mask = mask & (df['espece'].isin(espece_list))
+        mask = mask & (df[col_espece if col_espece in df.columns else 'espece'].isin(espece_list))
 
     df_sub = df[mask].copy()
     if df_sub.empty:
@@ -157,7 +157,7 @@ def compute_fuel_correlation(prix_serie: list, fuel_serie: list) -> float:
 # 3. CONSTRUCTION DU DASHBOARD 4-PANNEAUX
 # ═══════════════════════════════════════════════════════════════════
 
-def build_seasonality_dashboard(df: pd.DataFrame, espece_list: list, annees: list) -> go.Figure:
+def build_seasonality_dashboard(df: pd.DataFrame, espece_list: list, annees: list, col_espece: str = 'espece') -> go.Figure:
     """
     Génère le dashboard de saisonnalité interactif en Plotly.
     
@@ -197,7 +197,7 @@ def build_seasonality_dashboard(df: pd.DataFrame, espece_list: list, annees: lis
             couleur_repos = cal['couleur']
 
     for annee in annees:
-        monthly = get_monthly_stats(df, espece_list, annee)
+        monthly = get_monthly_stats(df, espece_list, annee, col_espece=col_espece)
         fuel = get_fuel_series(annee)
         sst = get_sst_series(annee)
 
@@ -375,7 +375,7 @@ def build_seasonality_dashboard(df: pd.DataFrame, espece_list: list, annees: lis
 # 4. TABLE SYNTHÈSE
 # ═══════════════════════════════════════════════════════════════════
 
-def build_summary_table(df: pd.DataFrame, espece_list: list, annees: list) -> pd.DataFrame:
+def build_summary_table(df: pd.DataFrame, espece_list: list, annees: list, col_espece: str = 'espece') -> pd.DataFrame:
     """
     Génère une table de synthèse mensuelle avec variation N/N-1.
     Colonnes : Mois, Vol 2024 (T), Vol 2025 (T), Δ Vol %, Prix 2024, Prix 2025, Δ Prix %,
@@ -388,7 +388,7 @@ def build_summary_table(df: pd.DataFrame, espece_list: list, annees: list) -> pd
 
     monthly_data = {}
     for annee in [2024, 2025]:
-        monthly_data[annee] = get_monthly_stats(df, espece_list, annee)
+        monthly_data[annee] = get_monthly_stats(df, espece_list, annee, col_espece=col_espece)
 
     for m in range(1, 13):
         m_label = MOIS_LABELS[m - 1]
