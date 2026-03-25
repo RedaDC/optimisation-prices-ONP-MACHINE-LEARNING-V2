@@ -117,6 +117,7 @@ def load_official_comparison_data():
                         'CA2025(KDH)': 'CA2025(KDh)', 'CA2025(KDH)': 'CA2025(KDh)',
                         'VARIATION.1': 'VARIATION(KDh)', 'VARIATION(KDH)': 'VARIATION(KDh)',
                         'VARIATION (KDH)': 'VARIATION(KDh)', 'VARIATION': 'VARIATION(KDh)',
+                        'VARIATION CA EN VALEURS': 'VARIATION(KDh)', 'VARIATION VOLUMES EN VALEURS': 'VARIATION VOLUMES EN VALEURS',
                         'PORT': 'PORT'
                     }
                     df = df.rename(columns=col_map)
@@ -2317,6 +2318,8 @@ def render_page_diminution_ca(df_default):
             df_feuil1 = load_official_comparison_data()
             
             if not df_feuil1.empty:
+                if 'VARIATION(KDh)' not in df_feuil1.columns and 'CA2024(KDh)' in df_feuil1.columns and 'CA2025(KDh)' in df_feuil1.columns:
+                    df_feuil1['VARIATION(KDh)'] = df_feuil1['CA2025(KDh)'] - df_feuil1['CA2024(KDh)']
                 df_feuil1['CA2024(KDh)'] = pd.to_numeric(df_feuil1['CA2024(KDh)'], errors='coerce').fillna(0)
                 df_feuil1['CA2025(KDh)'] = pd.to_numeric(df_feuil1['CA2025(KDh)'], errors='coerce').fillna(0)
                 df_feuil1['VARIATION(KDh)'] = pd.to_numeric(df_feuil1['VARIATION(KDh)'], errors='coerce').fillna(0)
