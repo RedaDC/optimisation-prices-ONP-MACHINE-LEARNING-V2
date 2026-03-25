@@ -58,7 +58,7 @@ IMAGES_PECHE_MAROC = {
     "rouget": "https://upload.wikimedia.org/wikipedia/commons/e/e1/Mullus_surmuletus.jpg",
     "baudroie": "https://upload.wikimedia.org/wikipedia/commons/a/a3/Lophius_piscatorius.jpg",
     "besugue": "https://upload.wikimedia.org/wikipedia/commons/e/ea/Pagellus_bogaraveo_-_Baron_Cuvier.jpg",
-    "abadeche": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Pink_ling.jpg/640px-Pink_ling.jpg",
+    "abadeche": "https://images.unsplash.com/photo-1524704659691-11831b3eb328?auto=format&fit=crop&q=80&w=800",
     "pouce_pied": "https://upload.wikimedia.org/wikipedia/commons/0/07/Pollicipes_pollicipes.jpg",
     "bonite": "https://upload.wikimedia.org/wikipedia/commons/b/bf/Sarda_sarda.jpg",
     "chinchard": "https://upload.wikimedia.org/wikipedia/commons/a/a1/Trachurus_trachurus.jpg",

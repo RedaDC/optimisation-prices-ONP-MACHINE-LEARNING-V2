@@ -118,14 +118,22 @@ def load_official_comparison_data():
                         'VARIATION.1': 'VARIATION(KDh)', 'VARIATION(KDH)': 'VARIATION(KDh)',
                         'VARIATION (KDH)': 'VARIATION(KDh)', 'VARIATION': 'VARIATION(KDh)',
                         'VARIATION CA EN VALEURS': 'VARIATION(KDh)', 'VARIATION VOLUMES EN VALEURS': 'VARIATION VOLUMES EN VALEURS',
-                        'PORT': 'PORT'
+                        'VAR (KDH)': 'VARIATION(KDh)', 'VAR.': 'VARIATION(KDh)',
+                        'PORT': 'PORT', 'ENTITÉ': 'PORT', 'HALLE': 'PORT'
                     }
                     df = df.rename(columns=col_map)
-                     # S'assurer que les colonnes numériques sont bien lues (gestion des séparateurs de milliers)
+                    # S'assurer que les colonnes numériques sont bien lues (gestion des séparateurs de milliers)
                     def safe_num_clean(v):
-                        if isinstance(v, str):
-                            v = v.replace(' ', '').replace('\xa0', '').replace(',', '.')
-                        return v
+                        if pd.isna(v): return 0
+                        if isinstance(v, (int, float)): return v
+                        v = str(v).replace(' ', '').replace('\xa0', '').replace(',', '.').replace("'", "")
+                        # Nettoyage additionnel des caractères invisibles ou non-numériques (sauf point et moins)
+                        import re
+                        v = re.sub(r'[^0-9\.\-]', '', v)
+                        try:
+                            return float(v) if v else 0.0
+                        except:
+                            return 0.0
 
                     for col in ['CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']:
                         if col in df.columns:
