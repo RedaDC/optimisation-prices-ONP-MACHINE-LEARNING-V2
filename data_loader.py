@@ -208,6 +208,7 @@ def extract_ml_data(file_input, output_path='onp_real_ml_data.csv'):
                         except: continue
                     # print(f"--- TRACE: Found {found_in_col} rows in this column couple.")
                 else:
+                    pass
                     # print(f"--- TRACE: Skipped Col {c} - Date components missing (Year: {year}, Month: {month})")
 
     if ml_records:
@@ -308,6 +309,7 @@ def process_onp_report(file_input, output_path=None):
     data_raw = df.iloc[3:].copy().reset_index(drop=True)
     def to_float(x):
         try: return float(str(x).replace(' ', '').replace(',', '.'))
+            pass
         except: return 0.0
 
     # Helper function to get or sum

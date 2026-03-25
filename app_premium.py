@@ -2392,9 +2392,11 @@ def render_page_diminution_ca(df_default):
                     # Mapping 2024/2025
                     if 2024 in df_agg_main.columns: df_agg_main['CA2024(KDh)'] = df_agg_main[2024] / 1000
                     else: df_agg_main['CA2024(KDh)'] = 0
+                        pass
                     
                     if 2025 in df_agg_main.columns: df_agg_main['CA2025(KDh)'] = df_agg_main[2025] / 1000
                     else: df_agg_main['CA2025(KDh)'] = 0
+                        pass
                     
                     df_agg_main['VARIATION(KDh)'] = df_agg_main['CA2025(KDh)'] - df_agg_main['CA2024(KDh)']
                     df_dr_agg = df_agg_main[['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']].copy()
