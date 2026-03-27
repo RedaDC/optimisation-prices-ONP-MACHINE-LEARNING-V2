@@ -389,9 +389,11 @@ def render_login_view():
                 <div class="onp-title-main" style="color: #FFFFFF !important; background: none !important; -webkit-text-fill-color: #FFFFFF !important; font-size: 3.5rem !important; font-weight: 900 !important; line-height: 1.1 !important; margin: 1rem 0 !important; text-shadow: 0 4px 20px rgba(0,0,0,0.9) !important;">
                     SOUVERAINETÉ<br/>HALIEUTIQUE
                 </div>
-                <div class="onp-tagline" style="color: #FFFFFF !important; font-size: 1.1rem !important; opacity: 1.0 !important; text-shadow: 0 2px 10px rgba(0,0,0,0.8) !important; background: none !important; -webkit-text-fill-color: #FFFFFF !important;">
+                <div class="onp-tagline" style="color: #FFFFFF !important; font-size: 1.1rem !important; opacity: 1.0 !important; text-shadow: 0 4px 15px rgba(0,0,0,0.9) !important; background: none !important; -webkit-text-fill-color: #FFFFFF !important;">
                     Intelligence augmentée pour la valorisation des produits de la mer.<br/>
-                    <span style="font-weight: 600;">by Reda Abousaid</span>
+                    <div style="margin-top: 15px; font-size: 1.6rem !important; font-weight: 800 !important; color: #AED6F1 !important; text-shadow: 0 4px 20px rgba(0,0,0,1.0) !important; -webkit-text-fill-color: #AED6F1 !important; letter-spacing: 1px;">
+                        by Reda Abousaid
+                    </div>
                 </div>
                 <div class="onp-divider" style="background: linear-gradient(90deg, transparent, #FFFFFF, transparent) !important; margin-top: 2rem !important;"></div>
             </div>
