@@ -2397,7 +2397,14 @@ def render_page_diminution_ca(df_default):
                 if 'port' in df_main.columns:
                     from utils import REGION_MAP
                     df_main['DR'] = df_main['port'].str.upper().str.strip().map(REGION_MAP).fillna('AUTRE')
-                    df_agg_main = df_main.groupby(['DR', 'annee'])['recette_totale'].sum().unstack(fill_value=0).reset_index()
+                    
+                    if 'annee' not in df_main.columns and 'date_vente' in df_main.columns:
+                        df_main['annee'] = pd.to_datetime(df_main['date_vente']).dt.year
+                        
+                    if 'annee' in df_main.columns:
+                        df_agg_main = df_main.groupby(['DR', 'annee'])['recette_totale'].sum().unstack(fill_value=0).reset_index()
+                    else:
+                        df_agg_main = pd.DataFrame()
                     
                     # Mapping 2024/2025
                     if 2024 in df_agg_main.columns: df_agg_main['CA2024(KDh)'] = df_agg_main[2024] / 1000
@@ -2408,6 +2415,21 @@ def render_page_diminution_ca(df_default):
                     
                     df_agg_main['VARIATION(KDh)'] = df_agg_main['CA2025(KDh)'] - df_agg_main['CA2024(KDh)']
                     df_dr_agg = df_agg_main[['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']].copy()
+                    
+                    # Detailed aggregates for Tab 2
+                    df_port_agg = df_main.groupby(['DR', 'port', 'annee'])['recette_totale'].sum().unstack(fill_value=0).reset_index()
+                    if 2024 in df_port_agg.columns: df_port_agg['CA2024(KDh)'] = df_port_agg[2024] / 1000
+                    else: df_port_agg['CA2024(KDh)'] = 0
+                    if 2025 in df_port_agg.columns: df_port_agg['CA2025(KDh)'] = df_port_agg[2025] / 1000
+                    else: df_port_agg['CA2025(KDh)'] = 0
+                    
+                    df_port_agg['VARIATION(KDh)'] = df_port_agg['CA2025(KDh)'] - df_port_agg['CA2024(KDh)']
+                    df_port_export = df_port_agg.rename(columns={'port': 'PORT'})
+                    
+                    is_mg_mask = df_port_export['PORT'].str.upper().str.contains('MG|GROS')
+                    df_mg = df_port_export[is_mg_mask].sort_values('CA2025(KDh)', ascending=False).copy()
+                    df_halles = df_port_export[~is_mg_mask].sort_values('CA2025(KDh)', ascending=False).copy()
+                    df_top_halles = df_halles.copy()
 
         except Exception as e:
             # st.write(f"DEBUG: Exception in Delegation aggregation: {e}")
