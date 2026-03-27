@@ -3031,11 +3031,31 @@ def render_page_saisonnalite(df):
             </span>
         </div>""", unsafe_allow_html=True)
 
-    # ── KPIs rapides ─────────────────────────────────────────────────
+    # ── KPIs rapides et Dashboard ────────────────────────────────────
     from saisonnalite import get_monthly_stats, FUEL_PRICES_2024, FUEL_PRICES_2025
+    
+    # Mapping Espèce -> Catégorie pour le fallback 2025
+    species_to_cat = {}
+    if 'categorie' in df.columns:
+        mapping_df = df[df['annee'] == 2024][['espece_clean' if 'espece_clean' in df.columns else col_espece, 'categorie']].drop_duplicates()
+        species_to_cat = dict(zip(mapping_df.iloc[:, 0], mapping_df.iloc[:, 1]))
+
+    def get_working_especes(annee, sel):
+        if annee != 2025: return sel
+        working = list(sel)
+        for esp in sel:
+            cat = species_to_cat.get(esp)
+            if cat and cat != esp:
+                # Si l'espèce est granulaire, on ajoute sa catégorie mère (ex: SARDINE -> POISSON PELAGIQUE)
+                # car le fichier de simulation 2025 ne contient que les catégories racines.
+                if cat not in working: working.append(cat)
+        return working
+
     kpi_cols = st.columns(4)
     for i, annee in enumerate(annee_sel[:4]):
-        monthly = get_monthly_stats(df, espece_sel, annee, col_espece=col_espece)
+        # On utilise le fallback pour les KPIs
+        working_esps = get_working_especes(annee, espece_sel)
+        monthly = get_monthly_stats(df, working_esps, annee, col_espece=col_espece)
         ca_total = (monthly['prix_moy'] * monthly['vol_t']).sum()
         vol_total = monthly['vol_t'].sum()
         prix_max_mois = MOIS_LABELS[monthly['prix_moy'].idxmax()]
@@ -3053,13 +3073,29 @@ def render_page_saisonnalite(df):
 
     # ── Dashboard 4 panneaux ─────────────────────────────────────────
     with st.spinner("Construction du dashboard saisonnalité..."):
-        fig = build_seasonality_dashboard(df, espece_sel, annee_sel, col_espece=col_espece)
+        # On passe le mapping à build_seasonality_dashboard s'il est supporté, 
+        # ou on l'utilise pour filtrer si le dashboard supporte plusieurs requêtes.
+        from saisonnalite import build_seasonality_dashboard
+        
+        # Le dashboard d'origine ne supporte pas un list par an. 
+        # On va ruser en passant df filtré ou en adaptant saisonnalite.py.
+        # Pour rester safe, appelons-le avec espece_sel mais on aura corrigé saisonnalite.py
+        fig = build_seasonality_dashboard(df, espece_sel, annee_sel, col_espece=col_espece, category_map=species_to_cat)
+        from saisonnalite import apply_premium_plotly_styling
         fig = apply_premium_plotly_styling(fig)
         st.plotly_chart(fig, use_container_width=True)
 
     # ── Table de synthèse ────────────────────────────────────────────
     with st.expander("Table de Synthèse Mensuelle (Exportable)", expanded=False):
-        df_tbl = build_summary_table(df, espece_sel, annee_sel, col_espece=col_espece)
+        # Pour la table, on utilise aussi le fallback pour chaque ligne d'année
+        dfs_tbl = []
+        for annee in annee_sel:
+            working_esps = get_working_especes(annee, espece_sel)
+            from saisonnalite import build_summary_table
+            df_yr = build_summary_table(df, working_esps, [annee], col_espece=col_espece)
+            dfs_tbl.append(df_yr)
+        
+        df_tbl = pd.concat(dfs_tbl).drop_duplicates() if dfs_tbl else pd.DataFrame()
         st.dataframe(df_tbl, use_container_width=True, hide_index=True)
         csv_bytes = df_tbl.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -3074,7 +3110,8 @@ def render_page_saisonnalite(df):
     from saisonnalite import get_monthly_stats, compute_fuel_correlation, get_fuel_series
     insight_cols = st.columns(2)
     for i, annee in enumerate(annee_sel):
-        monthly = get_monthly_stats(df, espece_sel, annee, col_espece=col_espece)
+        working_esps = get_working_especes(annee, espece_sel)
+        monthly = get_monthly_stats(df, working_esps, annee, col_espece=col_espece)
         fuel = get_fuel_series(annee)
         corr = compute_fuel_correlation(monthly['prix_moy'].tolist(), fuel)
         vol_peak = MOIS_LABELS[monthly['vol_t'].idxmax()]

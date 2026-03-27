@@ -157,7 +157,7 @@ def compute_fuel_correlation(prix_serie: list, fuel_serie: list) -> float:
 # 3. CONSTRUCTION DU DASHBOARD 4-PANNEAUX
 # ═══════════════════════════════════════════════════════════════════
 
-def build_seasonality_dashboard(df: pd.DataFrame, espece_list: list, annees: list, col_espece: str = 'espece') -> go.Figure:
+def build_seasonality_dashboard(df: pd.DataFrame, espece_list: list, annees: list, col_espece: str = 'espece', category_map: dict = None) -> go.Figure:
     """
     Génère le dashboard de saisonnalité interactif en Plotly.
     
@@ -197,7 +197,15 @@ def build_seasonality_dashboard(df: pd.DataFrame, espece_list: list, annees: lis
             couleur_repos = cal['couleur']
 
     for annee in annees:
-        monthly = get_monthly_stats(df, espece_list, annee, col_espece=col_espece)
+        # Fallback intelligent pour 2025 si granularité manquante
+        working_especes = list(espece_list)
+        if annee == 2025 and category_map:
+            for esp in espece_list:
+                cat = category_map.get(esp)
+                if cat and cat not in working_especes:
+                    working_especes.append(cat)
+        
+        monthly = get_monthly_stats(df, working_especes, annee, col_espece=col_espece)
         fuel = get_fuel_series(annee)
         sst = get_sst_series(annee)
 
