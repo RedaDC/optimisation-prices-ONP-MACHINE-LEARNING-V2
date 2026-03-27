@@ -2386,50 +2386,78 @@ def render_page_diminution_ca(df_default):
             # FALLBACK : Si toujours vide, on utilise le DF principal filtré
             if df_dr_agg.empty and df_default is not None and not df_default.empty:
                 df_main = df_default.copy()
-                if 'recette_totale' not in df_main.columns:
-                    if 'volume_kg' in df_main.columns and 'prix_unitaire_dh' in df_main.columns:
-                        df_main['recette_totale'] = df_main['volume_kg'] * df_main['prix_unitaire_dh']
-                    elif 'vol_t' in df_main.columns and 'prix_moy' in df_main.columns:
-                        df_main['recette_totale'] = df_main['vol_t'] * 1000 * df_main['prix_moy']
+                
+                # Check for WIDE format vs LONG format
+                if 'ca_2024_kdh' in df_main.columns and 'ca_2025_kdh' in df_main.columns:
+                    # WIDE FORMAT (eg. ca_reduction_2024_2025.csv)
+                    if 'delegation' in df_main.columns:
+                        df_main['DR'] = df_main['delegation']
+                    elif 'port' in df_main.columns:
+                        from utils import REGION_MAP
+                        df_main['DR'] = df_main['port'].str.upper().str.strip().map(REGION_MAP).fillna('AUTRE')
                     else:
-                        df_main['recette_totale'] = 0
+                        df_main['DR'] = 'INCONNU'
                         
-                if 'port' in df_main.columns:
-                    from utils import REGION_MAP
-                    df_main['DR'] = df_main['port'].str.upper().str.strip().map(REGION_MAP).fillna('AUTRE')
-                    
-                    if 'annee' not in df_main.columns and 'date_vente' in df_main.columns:
-                        df_main['annee'] = pd.to_datetime(df_main['date_vente']).dt.year
-                        
-                    if 'annee' in df_main.columns:
-                        df_agg_main = df_main.groupby(['DR', 'annee'])['recette_totale'].sum().unstack(fill_value=0).reset_index()
-                    else:
-                        df_agg_main = pd.DataFrame()
-                    
-                    # Mapping 2024/2025
-                    if 2024 in df_agg_main.columns: df_agg_main['CA2024(KDh)'] = df_agg_main[2024] / 1000
-                    else: df_agg_main['CA2024(KDh)'] = 0
-                    
-                    if 2025 in df_agg_main.columns: df_agg_main['CA2025(KDh)'] = df_agg_main[2025] / 1000
-                    else: df_agg_main['CA2025(KDh)'] = 0
-                    
+                    df_main['CA2024(KDh)'] = df_main['ca_2024_kdh']
+                    df_main['CA2025(KDh)'] = df_main['ca_2025_kdh']
+                    df_agg_main = df_main.groupby('DR')[['CA2024(KDh)', 'CA2025(KDh)']].sum().reset_index()
                     df_agg_main['VARIATION(KDh)'] = df_agg_main['CA2025(KDh)'] - df_agg_main['CA2024(KDh)']
                     df_dr_agg = df_agg_main[['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']].copy()
                     
-                    # Detailed aggregates for Tab 2
-                    df_port_agg = df_main.groupby(['DR', 'port', 'annee'])['recette_totale'].sum().unstack(fill_value=0).reset_index()
-                    if 2024 in df_port_agg.columns: df_port_agg['CA2024(KDh)'] = df_port_agg[2024] / 1000
-                    else: df_port_agg['CA2024(KDh)'] = 0
-                    if 2025 in df_port_agg.columns: df_port_agg['CA2025(KDh)'] = df_port_agg[2025] / 1000
-                    else: df_port_agg['CA2025(KDh)'] = 0
-                    
+                    df_main['PORT'] = df_main.get('port', df_main.get('PORT', 'INCONNU'))
+                    df_port_agg = df_main.groupby(['DR', 'PORT'])[['CA2024(KDh)', 'CA2025(KDh)']].sum().reset_index()
                     df_port_agg['VARIATION(KDh)'] = df_port_agg['CA2025(KDh)'] - df_port_agg['CA2024(KDh)']
-                    df_port_export = df_port_agg.rename(columns={'port': 'PORT'})
+                    df_port_export = df_port_agg.copy()
                     
                     is_mg_mask = df_port_export['PORT'].str.upper().str.contains('MG|GROS')
                     df_mg = df_port_export[is_mg_mask].sort_values('CA2025(KDh)', ascending=False).copy()
                     df_halles = df_port_export[~is_mg_mask].sort_values('CA2025(KDh)', ascending=False).copy()
                     df_top_halles = df_halles.copy()
+                    
+                else:
+                    # LONG FORMAT (eg. donnees_simulation_onp.csv)
+                    if 'recette_totale' not in df_main.columns:
+                        if 'volume_kg' in df_main.columns and 'prix_unitaire_dh' in df_main.columns:
+                            df_main['recette_totale'] = df_main['volume_kg'] * df_main['prix_unitaire_dh']
+                        elif 'vol_t' in df_main.columns and 'prix_moy' in df_main.columns:
+                            df_main['recette_totale'] = df_main['vol_t'] * 1000 * df_main['prix_moy']
+                        else:
+                            df_main['recette_totale'] = 0
+                            
+                    if 'port' in df_main.columns:
+                        from utils import REGION_MAP
+                        df_main['DR'] = df_main['port'].str.upper().str.strip().map(REGION_MAP).fillna('AUTRE')
+                        
+                        if 'annee' not in df_main.columns and 'date_vente' in df_main.columns:
+                            df_main['annee'] = pd.to_datetime(df_main['date_vente']).dt.year
+                            
+                        if 'annee' in df_main.columns:
+                            df_agg_main = df_main.groupby(['DR', 'annee'])['recette_totale'].sum().unstack(fill_value=0).reset_index()
+                            
+                            # Mapping 2024/2025
+                            if 2024 in df_agg_main.columns: df_agg_main['CA2024(KDh)'] = df_agg_main[2024] / 1000
+                            else: df_agg_main['CA2024(KDh)'] = 0
+                            
+                            if 2025 in df_agg_main.columns: df_agg_main['CA2025(KDh)'] = df_agg_main[2025] / 1000
+                            else: df_agg_main['CA2025(KDh)'] = 0
+                            
+                            df_agg_main['VARIATION(KDh)'] = df_agg_main['CA2025(KDh)'] - df_agg_main['CA2024(KDh)']
+                            df_dr_agg = df_agg_main[['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)']].copy()
+                            
+                            # Detailed aggregates for Tab 2
+                            df_port_agg = df_main.groupby(['DR', 'port', 'annee'])['recette_totale'].sum().unstack(fill_value=0).reset_index()
+                            if 2024 in df_port_agg.columns: df_port_agg['CA2024(KDh)'] = df_port_agg[2024] / 1000
+                            else: df_port_agg['CA2024(KDh)'] = 0
+                            if 2025 in df_port_agg.columns: df_port_agg['CA2025(KDh)'] = df_port_agg[2025] / 1000
+                            else: df_port_agg['CA2025(KDh)'] = 0
+                            
+                            df_port_agg['VARIATION(KDh)'] = df_port_agg['CA2025(KDh)'] - df_port_agg['CA2024(KDh)']
+                            df_port_export = df_port_agg.rename(columns={'port': 'PORT'})
+                            
+                            is_mg_mask = df_port_export['PORT'].str.upper().str.contains('MG|GROS')
+                            df_mg = df_port_export[is_mg_mask].sort_values('CA2025(KDh)', ascending=False).copy()
+                            df_halles = df_port_export[~is_mg_mask].sort_values('CA2025(KDh)', ascending=False).copy()
+                            df_top_halles = df_halles.copy()
 
         except Exception as e:
             # Fallback extreme via DF principal
