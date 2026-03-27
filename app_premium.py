@@ -2654,7 +2654,7 @@ def render_page_diminution_ca(df_default):
             fig_bar_dr = px.bar(title="Aucune donnée (Variation par DR)")
             
         if not df_port_export.empty:
-            fig_bar_port = px.bar(df_port_export.head(10), x='ca_diff_kdh', y='port', orientation='h', title="Top Baisses Par Port")
+            fig_bar_port = px.bar(df_port_export.head(10), x='VARIATION(KDh)', y='PORT', orientation='h', title="Top Baisses Par Port")
         else:
             fig_bar_port = px.bar(title="Aucune donnée (Top Baisses Port)")
 
