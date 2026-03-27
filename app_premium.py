@@ -2978,9 +2978,11 @@ def render_page_saisonnalite(df):
             data_granulaire = 'donnees_simulation_onp.csv'
             if os.path.exists(data_granulaire):
                 df_gran = pd.read_csv(data_granulaire)
-                # Nettoyage minimal pour compatibilité
-                from utils import clean_data, normalize_species_name
+                # Nettoyage et création des features (annee, mois...)
+                from utils import clean_data, create_features, normalize_species_name
                 df_gran = clean_data(df_gran)
+                df_gran = create_features(df_gran) # Ajoute 'annee', 'mois' etc.
+                
                 df_gran['espece_clean'] = df_gran['espece'].apply(lambda x: normalize_species_name(x).replace('_', ' ').upper())
                 col_espece = 'espece_clean'
                 df = df_gran
