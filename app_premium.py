@@ -2386,6 +2386,14 @@ def render_page_diminution_ca(df_default):
             # FALLBACK : Si toujours vide, on utilise le DF principal filtré
             if df_dr_agg.empty and not df.empty:
                 df_main = df.copy()
+                if 'recette_totale' not in df_main.columns:
+                    if 'volume_kg' in df_main.columns and 'prix_unitaire_dh' in df_main.columns:
+                        df_main['recette_totale'] = df_main['volume_kg'] * df_main['prix_unitaire_dh']
+                    elif 'vol_t' in df_main.columns and 'prix_moy' in df_main.columns:
+                        df_main['recette_totale'] = df_main['vol_t'] * 1000 * df_main['prix_moy']
+                    else:
+                        df_main['recette_totale'] = 0
+                        
                 if 'port' in df_main.columns:
                     from utils import REGION_MAP
                     df_main['DR'] = df_main['port'].str.upper().str.strip().map(REGION_MAP).fillna('AUTRE')
