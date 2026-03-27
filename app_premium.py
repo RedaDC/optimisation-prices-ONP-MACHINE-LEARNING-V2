@@ -2384,8 +2384,8 @@ def render_page_diminution_ca(df_default):
                     df_dr_agg = pd.DataFrame(columns=['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'])
 
             # FALLBACK : Si toujours vide, on utilise le DF principal filtré
-            if df_dr_agg.empty and not df.empty:
-                df_main = df.copy()
+            if df_dr_agg.empty and df_default is not None and not df_default.empty:
+                df_main = df_default.copy()
                 if 'recette_totale' not in df_main.columns:
                     if 'volume_kg' in df_main.columns and 'prix_unitaire_dh' in df_main.columns:
                         df_main['recette_totale'] = df_main['volume_kg'] * df_main['prix_unitaire_dh']
@@ -2432,7 +2432,6 @@ def render_page_diminution_ca(df_default):
                     df_top_halles = df_halles.copy()
 
         except Exception as e:
-            # st.write(f"DEBUG: Exception in Delegation aggregation: {e}")
             # Fallback extreme via DF principal
             df_dr_agg = pd.DataFrame(columns=['DR', 'CA2024(KDh)', 'CA2025(KDh)', 'VARIATION(KDh)'])
             df_top_halles = pd.DataFrame()
