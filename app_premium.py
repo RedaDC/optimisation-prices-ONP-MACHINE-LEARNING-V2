@@ -2970,17 +2970,33 @@ def render_page_saisonnalite(df):
     st.markdown("<p style='color:#64748B;'>Sélectionnez une ou plusieurs entités pour explorer la saisonnalité, les périodes de repos biologique, et les corrélations (climat/marché).</p>", unsafe_allow_html=True)
     st.markdown("<hr style='margin-top:0.5rem; margin-bottom:1.5rem;'/>", unsafe_allow_html=True)
 
-    # ── Filtres ──────────────────────────────────────────────────────
+    # ── Chargement des Espèces (Correction : Accès aux espèces granulaires) ──────────
+    # Si le DF actuel est catégoriel (ex: 7-10 espèces max), on tente de charger le DF de simulation
+    # qui contient les espèces granulaires réclamées (Sardine, Anchois...)
+    if len(df[col_espece].unique()) < 15:
+        try:
+            data_granulaire = 'donnees_simulation_onp.csv'
+            if os.path.exists(data_granulaire):
+                df_gran = pd.read_csv(data_granulaire)
+                # Nettoyage minimal pour compatibilité
+                from utils import clean_data, normalize_species_name
+                df_gran = clean_data(df_gran)
+                df_gran['espece_clean'] = df_gran['espece'].apply(lambda x: normalize_species_name(x).replace('_', ' ').upper())
+                col_espece = 'espece_clean'
+                df = df_gran
+        except:
+            pass
+
     all_especes = sorted(df[col_espece].dropna().unique().tolist())
-    all_annees = sorted(df['annee'].dropna().astype(int).unique().tolist())
+    all_annees = [2024, 2025] # Fixé pour la saisonnalité comparative
 
     col_f1, col_f2 = st.columns([2, 1])
     with col_f1:
         espece_sel = st.multiselect(
-            "Recherche Rapide (Toutes les Espèces)",
+            "Recherche Rapide (Sardine, Anchois, Poulpe...)",
             all_especes,
             default=all_especes[:2] if len(all_especes) >= 2 else all_especes,
-            help="Sélectionnez une ou plusieurs espèces parmi toutes celles disponibles dans la base ONP."
+            help="Sélectionnez une ou plusieurs espèces parmi toutes celles disponibles."
         )
     with col_f2:
         annee_sel = st.multiselect(
@@ -3064,6 +3080,23 @@ def render_page_saisonnalite(df):
         vol_low = MOIS_LABELS[monthly['vol_t'].idxmin()]
 
         direction = '(positive)' if corr > 0.3 else ('(négative)' if corr < -0.3 else '(faible)')
+        
+        # Code couleur pour la jauge
+        if abs(corr) >= 0.7:
+            bar_color = "#10B981" # Vert (Fort)
+            strength_txt = "FORTE"
+        elif abs(corr) >= 0.3:
+            bar_color = "#0EA5E9" # Bleu (Modérée)
+            strength_txt = "MODÉRÉE"
+        else:
+            bar_color = "#94A3B8" # Gris (Faible)
+            strength_txt = "FAIBLE"
+            
+        if corr < -0.3:
+            strength_txt += " INVERSE"
+            if abs(corr) >= 0.7: bar_color = "#EF4444" # Rouge (Fort Inverse)
+            elif abs(corr) >= 0.3: bar_color = "#F59E0B" # Orange (Modéré Inverse)
+
         with insight_cols[i % 2]:
             st.markdown(f"""
             <div style="background:white; padding:18px; border-radius:12px;
@@ -3073,8 +3106,16 @@ def render_page_saisonnalite(df):
                     <strong>Pic de captures</strong> : {vol_peak}<br>
                     <strong>Pic de prix</strong> : {prix_peak}<br>
                     <strong>Creux de captures</strong> : {vol_low}<br>
-                    <strong>Corr. prix/carburant</strong> : {corr:+.2f} {direction}
                 </p>
+                <div style="margin-top:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <span style="font-size:0.75rem; font-weight:700; color:#475569;">LIAISON PRIX / CARBURANT</span>
+                        <span style="font-size:0.75rem; font-weight:800; color:{bar_color};">{strength_txt} ({corr:+.2f})</span>
+                    </div>
+                    <div style="width:100%; height:8px; background:#F1F5F9; border-radius:4px; overflow:hidden;">
+                        <div style="width:{abs(corr)*100}%; height:100%; background:{bar_color};"></div>
+                    </div>
+                </div>
             </div>""", unsafe_allow_html=True)
 
 # ==================== MAIN APPLICATION ====================

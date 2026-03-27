@@ -356,7 +356,15 @@ def build_seasonality_dashboard(df: pd.DataFrame, espece_list: list, annees: lis
         hoverlabel=dict(bgcolor='white', font_size=12, font_family='Outfit'),
     )
 
-    # Axes labels
+    # ── Axes labels & Ticks Fix (Doublon Jan Jan) ───────────────────
+    for r in [1, 2, 4]:
+        fig.update_xaxes(
+            tickmode='array',
+            tickvals=MOIS_LABELS,
+            ticktext=MOIS_LABELS,
+            row=r, col=1
+        )
+
     fig.update_yaxes(title_text='Volume (Tonnes)', row=1, col=1)
     fig.update_yaxes(title_text='Volume normalisé (%)', row=2, col=1)
     fig.update_xaxes(title_text='Prix carburant (DH/L)', row=3, col=1)
