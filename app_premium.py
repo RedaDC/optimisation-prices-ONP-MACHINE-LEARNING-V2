@@ -3081,7 +3081,7 @@ def render_page_saisonnalite(df):
         # On va ruser en passant df filtré ou en adaptant saisonnalite.py.
         # Pour rester safe, appelons-le avec espece_sel mais on aura corrigé saisonnalite.py
         fig = build_seasonality_dashboard(df, espece_sel, annee_sel, col_espece=col_espece, category_map=species_to_cat)
-        from saisonnalite import apply_premium_plotly_styling
+        from design_system import apply_premium_plotly_styling
         fig = apply_premium_plotly_styling(fig)
         st.plotly_chart(fig, use_container_width=True)
 
